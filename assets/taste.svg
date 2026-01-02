@@ -1,0 +1,31 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .bg { fill: var(--icon-bg, currentColor); }
+    .fg { fill: var(--icon-fg, var(--fallback-bg, #ffffff)); }
+    .accent { fill: var(--icon-fg, var(--fallback-bg, #ffffff)); opacity: 0.8; }
+    @media (prefers-color-scheme: dark) {
+      .bg { --fallback-bg: #ffffff; --fallback-fg: #000000; }
+      .fg { --fallback-bg: #000000; }
+      .accent { --fallback-bg: #000000; }
+    }
+  </style>
+  
+  <!-- Background square with sharp edges -->
+  <rect x="2" y="2" width="28" height="28" class="bg" stroke="none"/>
+  
+  <!-- Inner "T" shape in negative space - angular and geometric -->
+  <g class="fg">
+    <!-- Top horizontal bar of T -->
+    <rect x="6" y="6" width="20" height="4"/>
+    <!-- Vertical bar of T -->
+    <rect x="14" y="6" width="4" height="20"/>
+  </g>
+  
+  <!-- Additional geometric accent - small squares for texture -->
+  <g class="accent">
+    <rect x="8" y="12" width="2" height="2"/>
+    <rect x="22" y="12" width="2" height="2"/>
+    <rect x="8" y="22" width="2" height="2"/>
+    <rect x="22" y="22" width="2" height="2"/>
+  </g>
+</svg>
