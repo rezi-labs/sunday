@@ -30,7 +30,7 @@ pub async fn login_form(req: HttpRequest, config: web::Data<Server>) -> Result<H
         None
     };
 
-    let html = view::auth::login_form(message.as_deref());
+    let html = view::auth::login_form(message.as_deref(), &config);
     Ok(HttpResponse::Ok()
         .content_type("text/html")
         .body(html.into_string()))

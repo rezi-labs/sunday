@@ -12,17 +12,21 @@ use crate::config::Server;
 use crate::routes::get_user;
 
 #[get("/table")]
-pub async fn index_table_route(_server: web::Data<Server>, req: HttpRequest) -> AwResult<Markup> {
+pub async fn index_table_route(server: web::Data<Server>, req: HttpRequest) -> AwResult<Markup> {
     let user = get_user(req.clone());
-    Ok(placeholder_table(user.as_ref()))
+    Ok(placeholder_table(user.as_ref(), &server))
 }
 
 #[get("/")]
-pub async fn index_route(_server: web::Data<Server>, req: HttpRequest) -> AwResult<Markup> {
+pub async fn index_route(server: web::Data<Server>, req: HttpRequest) -> AwResult<Markup> {
     let user = get_user(req.clone());
 
     // Return full page for normal requests
-    Ok(index(placeholder_table(user.as_ref()), user.as_ref()))
+    Ok(index(
+        placeholder_table(user.as_ref(), &server),
+        user.as_ref(),
+        &server,
+    ))
 }
 
 #[get("/about/readme")]
@@ -35,7 +39,7 @@ pub async fn about_endpoint(_server: web::Data<Server>) -> AwResult<Markup> {
     Ok(about::about())
 }
 
-fn head() -> Markup {
+fn head(server: &Server) -> Markup {
     html! {
         head {
             meta charset="utf-8";
@@ -46,19 +50,19 @@ fn head() -> Markup {
             (js("/assets/htmx.js"))
             (js("/assets/tw.js"))
             (js_module("/assets/deepchat.js"))
-            title { "Sunday" }
+            title { (server.sunday_name()) }
         }
     }
 }
 
-pub fn index(content: Markup, user: Option<&crate::user::User>) -> Markup {
+pub fn index(content: Markup, user: Option<&crate::user::User>, server: &Server) -> Markup {
     html! {
-       (head())
+       (head(server))
         body hx-boost="true" {
 
 
             div class="min-h-screen bg-base-100" {
-                (navbar::render(user))
+                (navbar::render(user, server))
                 main class="container mx-auto px-4 py-6" {
                     (content)
                 }
@@ -67,26 +71,26 @@ pub fn index(content: Markup, user: Option<&crate::user::User>) -> Markup {
     }
 }
 
-fn placeholder_table(user: Option<&crate::user::User>) -> Markup {
+fn placeholder_table(user: Option<&crate::user::User>, server: &Server) -> Markup {
     html! {
         div class="max-w-4xl mx-auto" id="main-page" {
             div class="card bg-base-200 shadow-xl" {
                 div class="card-body" {
                     div class="flex justify-between items-center mb-6" {
                         h2 class="card-title" {
-                            "Welcome to Sunday"
+                            "Welcome to " (server.sunday_name())
                         }
                     }
 
                     // Chat Interface
                     div class="bg-base-100 rounded-lg p-4" {
                         @if let Some(user) = user {
-                    
+
                             // Deep Chat Component
                             deep-chat
                                 style="width: 400px; height: 400px; border-radius: 8px;"
                                 connect=r#"{"url": "/api/chat", "method": "POST"}"#
-                                intro-message=r#"{"text": "Hello! I'm Sunday AI. How can I help you today?"}"#
+                                intro-message=(format!(r#"{{"text": "Hello! I'm {} AI. How can I help you today?"}}"#, server.sunday_name()))
                             {}
                         } @else {
                             div class="text-center" {
@@ -95,9 +99,9 @@ fn placeholder_table(user: Option<&crate::user::User>) -> Markup {
                                         path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.418 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.418-8 9-8s9 3.582 9 8z";
                                     }
                                 }
-                                h3 class="text-2xl font-semibold mb-4" { "Chat with Sunday AI" }
+                                h3 class="text-2xl font-semibold mb-4" { "Chat with " (server.sunday_name()) " AI" }
                                 p class="text-base-content/70 mb-6" {
-                                    "Please sign in to start chatting with Sunday AI."
+                                    "Please sign in to start chatting with " (server.sunday_name()) " AI."
                                 }
                                 div class="space-x-4" {
                                     a href="/auth/login" class="btn btn-primary" {

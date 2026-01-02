@@ -1,3 +1,4 @@
+use crate::config::Server;
 use crate::routes::get_user;
 use actix_web::{HttpRequest, HttpResponse, Result as AwResult, Scope, post, web};
 use serde::{Deserialize, Serialize};
@@ -34,7 +35,11 @@ pub struct ChatResponse {
 }
 
 #[post("/chat")]
-async fn chat_endpoint(req: HttpRequest, body: web::Json<ChatRequest>) -> AwResult<HttpResponse> {
+async fn chat_endpoint(
+    server: web::Data<Server>,
+    req: HttpRequest,
+    body: web::Json<ChatRequest>,
+) -> AwResult<HttpResponse> {
     // Check if user is authenticated
     let user = get_user(req);
     if user.is_none() {
@@ -59,13 +64,18 @@ async fn chat_endpoint(req: HttpRequest, body: web::Json<ChatRequest>) -> AwResu
     let response_text = match latest_message {
         Some(user_text) => {
             // Simple echo response for now - you can integrate with AI services here
-            format!("Hello {}! You said: '{}'. This is Sunday AI responding to your message. In the future, this will be connected to a proper AI service.", 
+            format!(
+                "Hello {}! You said: '{}'. This is {} AI responding to your message. In the future, this will be connected to a proper AI service.",
                 user.email(),
-                user_text
+                user_text,
+                server.sunday_name()
             )
         }
         None => {
-            "Hello! I'm Sunday AI. I didn't receive any text in your message. Could you please try again?".to_string()
+            format!(
+                "Hello! I'm {} AI. I didn't receive any text in your message. Could you please try again?",
+                server.sunday_name()
+            )
         }
     };
 

@@ -1,10 +1,11 @@
-use crate::config::DatabaseClient;
+use crate::config::{DatabaseClient, Server};
 use crate::db;
 use crate::routes::get_user;
 use crate::view;
 use actix_web::{HttpRequest, HttpResponse, Result, error::ErrorInternalServerError, web};
 
 pub async fn dashboard(
+    server: web::Data<Server>,
     req: HttpRequest,
     db_client: web::Data<DatabaseClient>,
 ) -> Result<HttpResponse> {
@@ -30,7 +31,7 @@ pub async fn dashboard(
         }
     };
 
-    let html = view::admin::dashboard(users, user.as_ref(), None);
+    let html = view::admin::dashboard(users, user.as_ref(), None, &server);
     Ok(HttpResponse::Ok()
         .content_type("text/html")
         .body(html.into_string()))

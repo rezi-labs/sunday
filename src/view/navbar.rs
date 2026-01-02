@@ -1,15 +1,16 @@
 use maud::{Markup, html};
 
+use crate::config::Server;
 use crate::user::User;
 use crate::view::icons::{info_icon, sunday_icon, theme_icon};
 
-pub fn render(user: Option<&User>) -> Markup {
+pub fn render(user: Option<&User>, server: &Server) -> Markup {
     html! {
-       (navbar(user))
+       (navbar(user, server))
     }
 }
 
-fn navbar(user: Option<&User>) -> Markup {
+fn navbar(user: Option<&User>, server: &Server) -> Markup {
     html! {
         nav class="bg-base-100 border-b border-base-200 px-6 py-4" {
             div class="max-w-[80rem] mx-auto flex items-center justify-between" {
@@ -19,7 +20,7 @@ fn navbar(user: Option<&User>) -> Markup {
                             (sunday_icon())
                         }
                         h1 class="text-lg font-light tracking-widest uppercase text-base-content" {
-                            "Sunday"
+                            (server.sunday_name())
                         }
                     }
                 }

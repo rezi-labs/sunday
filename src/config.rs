@@ -19,6 +19,7 @@ pub struct Server {
     oidc_config: OidcConfig,
     pub pg_pool: PgPool,
     theme_api_url: Option<String>,
+    sunday_name: String,
 }
 
 pub type DatabaseClient = Arc<Mutex<Client>>;
@@ -62,6 +63,10 @@ impl Server {
 
     pub fn theme_api_url(&self) -> Option<&str> {
         self.theme_api_url.as_deref()
+    }
+
+    pub fn sunday_name(&self) -> &str {
+        &self.sunday_name
     }
 }
 
@@ -128,6 +133,9 @@ pub fn from_env() -> Server {
     // Theme API URL (optional)
     let theme_api_url = env::var("THEME_API_URL").ok();
 
+    // Sunday name (with fallback)
+    let sunday_name = env::var("SUNDAY_NAME").unwrap_or_else(|_| "Sunday".to_string());
+
     // Create PgPool for sqlx operations (will be initialized in main.rs)
     // For now, we'll use a placeholder that will be replaced in main.rs
     let pg_pool = PgPool::connect_lazy(&db_url).expect("Failed to create PgPool");
@@ -144,5 +152,6 @@ pub fn from_env() -> Server {
         oidc_config,
         pg_pool,
         theme_api_url,
+        sunday_name,
     }
 }

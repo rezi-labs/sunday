@@ -7,6 +7,7 @@ use tokio_postgres::Client;
 use uuid::Uuid;
 use validator::Validate;
 
+use crate::config::Server;
 use crate::db;
 use crate::routes::get_user;
 use crate::view;
@@ -102,7 +103,11 @@ pub struct CreateUserForm {
 }
 
 /// Create user handler
-pub async fn create_user(req: HttpRequest, form: web::Form<CreateUserForm>) -> AwResult<Markup> {
+pub async fn create_user(
+    server: web::Data<Server>,
+    req: HttpRequest,
+    form: web::Form<CreateUserForm>,
+) -> AwResult<Markup> {
     let user = match get_user(req.clone()) {
         Some(user) if user.is_admin() => user,
         _ => {
@@ -179,7 +184,7 @@ pub async fn create_user(req: HttpRequest, form: web::Form<CreateUserForm>) -> A
             let users = db::user::list_all(db_client, None)
                 .await
                 .unwrap_or_default();
-            Ok(view::admin::dashboard::dashboard(users, Some(&user), None))
+            Ok(view::admin::dashboard(users, Some(&user), None, &server))
         }
         Err(e) => {
             log::error!("Error creating user: {e:?}");
@@ -318,6 +323,7 @@ pub struct UpdateUserForm {
 
 /// Update user handler
 pub async fn update_user(
+    server: web::Data<Server>,
     req: HttpRequest,
     path: web::Path<Uuid>,
     form: web::Form<UpdateUserForm>,
@@ -405,7 +411,7 @@ pub async fn update_user(
             let users = db::user::list_all(db_client, None)
                 .await
                 .unwrap_or_default();
-            Ok(view::admin::dashboard::dashboard(users, Some(&user), None))
+            Ok(view::admin::dashboard(users, Some(&user), None, &server))
         }
         Err(e) => {
             log::error!("Error updating user: {e:?}");
@@ -419,7 +425,11 @@ pub async fn update_user(
 }
 
 /// Delete user handler
-pub async fn delete_user(req: HttpRequest, path: web::Path<Uuid>) -> AwResult<Markup> {
+pub async fn delete_user(
+    server: web::Data<Server>,
+    req: HttpRequest,
+    path: web::Path<Uuid>,
+) -> AwResult<Markup> {
     let user = match get_user(req.clone()) {
         Some(user) if user.is_admin() => user,
         _ => {
@@ -444,7 +454,7 @@ pub async fn delete_user(req: HttpRequest, path: web::Path<Uuid>) -> AwResult<Ma
             let users = db::user::list_all(db_client, None)
                 .await
                 .unwrap_or_default();
-            Ok(view::admin::dashboard::dashboard(users, Some(&user), None))
+            Ok(view::admin::dashboard(users, Some(&user), None, &server))
         }
         Err(e) => {
             log::error!("Error deleting user: {e:?}");
@@ -458,7 +468,11 @@ pub async fn delete_user(req: HttpRequest, path: web::Path<Uuid>) -> AwResult<Ma
 }
 
 /// Toggle user active status
-pub async fn toggle_user_active(req: HttpRequest, path: web::Path<Uuid>) -> AwResult<Markup> {
+pub async fn toggle_user_active(
+    server: web::Data<Server>,
+    req: HttpRequest,
+    path: web::Path<Uuid>,
+) -> AwResult<Markup> {
     let user = match get_user(req.clone()) {
         Some(user) if user.is_admin() => user,
         _ => {
@@ -487,7 +501,7 @@ pub async fn toggle_user_active(req: HttpRequest, path: web::Path<Uuid>) -> AwRe
             let users = db::user::list_all(db_client, None)
                 .await
                 .unwrap_or_default();
-            Ok(view::admin::dashboard::dashboard(users, Some(&user), None))
+            Ok(view::admin::dashboard(users, Some(&user), None, &server))
         }
         Err(e) => {
             log::error!("Error toggling user active status: {e:?}");
@@ -501,7 +515,11 @@ pub async fn toggle_user_active(req: HttpRequest, path: web::Path<Uuid>) -> AwRe
 }
 
 /// Toggle user admin status
-pub async fn toggle_user_admin(req: HttpRequest, path: web::Path<Uuid>) -> AwResult<Markup> {
+pub async fn toggle_user_admin(
+    server: web::Data<Server>,
+    req: HttpRequest,
+    path: web::Path<Uuid>,
+) -> AwResult<Markup> {
     let user = match get_user(req.clone()) {
         Some(user) if user.is_admin() => user,
         _ => {
@@ -526,7 +544,7 @@ pub async fn toggle_user_admin(req: HttpRequest, path: web::Path<Uuid>) -> AwRes
             let users = db::user::list_all(db_client, None)
                 .await
                 .unwrap_or_default();
-            Ok(view::admin::dashboard::dashboard(users, Some(&user), None))
+            Ok(view::admin::dashboard(users, Some(&user), None, &server))
         }
         Err(e) => {
             log::error!("Error toggling user admin status: {e:?}");

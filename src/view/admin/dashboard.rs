@@ -1,3 +1,4 @@
+use crate::config::Server;
 use crate::db::user::Model as UserModel;
 use crate::user::User;
 use crate::view::navbar;
@@ -6,11 +7,12 @@ pub fn dashboard(
     users: Vec<UserModel>,
     current_user: Option<&User>,
     search_term: Option<&str>,
+    server: &Server,
 ) -> maud::Markup {
     maud::html! {
-        (super::super::head())
+        (super::super::head(server))
         body class="bg-base-100 min-h-screen" {
-            (navbar::render(current_user))
+            (navbar::render(current_user, server))
 
             // Main content area with better spacing
             div class="container mx-auto px-4 py-8 max-w-7xl" {

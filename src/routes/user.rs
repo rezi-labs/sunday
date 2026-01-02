@@ -6,12 +6,13 @@ use tokio::sync::Mutex;
 use tokio_postgres::Client;
 use validator::Validate;
 
+use crate::config::Server;
 use crate::db;
 use crate::routes::get_user;
 use crate::view;
 
 /// User dashboard handler
-pub async fn dashboard(req: HttpRequest) -> AwResult<Markup> {
+pub async fn dashboard(server: web::Data<Server>, req: HttpRequest) -> AwResult<Markup> {
     let content = maud::html! {
         div class="text-center" {
             p { "Please log in to access your dashboard" }
@@ -21,7 +22,7 @@ pub async fn dashboard(req: HttpRequest) -> AwResult<Markup> {
     let user = match get_user(req.clone()) {
         Some(user) => user,
         None => {
-            return Ok(view::index(content, None));
+            return Ok(view::index(content, None, &server));
         }
     };
     // Get user data from database
@@ -40,6 +41,7 @@ pub async fn dashboard(req: HttpRequest) -> AwResult<Markup> {
                     }
                 },
                 Some(&user),
+                &server,
             ));
         }
         Err(e) => {
@@ -51,6 +53,7 @@ pub async fn dashboard(req: HttpRequest) -> AwResult<Markup> {
                     }
                 },
                 Some(&user),
+                &server,
             ));
         }
     };
@@ -58,11 +61,12 @@ pub async fn dashboard(req: HttpRequest) -> AwResult<Markup> {
     Ok(view::index(
         view::user::dashboard(&db_user, &user),
         Some(&user),
+        &server,
     ))
 }
 
 /// User profile edit form handler
-pub async fn edit_profile_form(req: HttpRequest) -> AwResult<Markup> {
+pub async fn edit_profile_form(server: web::Data<Server>, req: HttpRequest) -> AwResult<Markup> {
     let user = match get_user(req.clone()) {
         Some(user) => user,
         None => {
@@ -74,6 +78,7 @@ pub async fn edit_profile_form(req: HttpRequest) -> AwResult<Markup> {
                     }
                 },
                 None,
+                &server,
             ));
         }
     };
@@ -94,6 +99,7 @@ pub async fn edit_profile_form(req: HttpRequest) -> AwResult<Markup> {
                     }
                 },
                 Some(&user),
+                &server,
             ));
         }
         Err(e) => {
@@ -105,6 +111,7 @@ pub async fn edit_profile_form(req: HttpRequest) -> AwResult<Markup> {
                     }
                 },
                 Some(&user),
+                &server,
             ));
         }
     };
@@ -112,6 +119,7 @@ pub async fn edit_profile_form(req: HttpRequest) -> AwResult<Markup> {
     Ok(view::index(
         view::user::edit_profile_form(&db_user),
         Some(&user),
+        &server,
     ))
 }
 
@@ -125,6 +133,7 @@ pub struct UpdateProfileForm {
 
 /// Update user profile handler
 pub async fn update_profile(
+    _server: web::Data<Server>,
     req: HttpRequest,
     form: web::Json<UpdateProfileForm>,
 ) -> AwResult<Markup> {
