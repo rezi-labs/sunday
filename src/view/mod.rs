@@ -45,8 +45,6 @@ fn head() -> Markup {
             link rel="stylesheet" href="/assets/app.css";
             (js("/assets/htmx.js"))
             (js("/assets/tw.js"))
-            (js("/assets/htmxListener.js"))
-            (js("/assets/htmx-reload.js"))
             (js_module("/assets/deepchat.js"))
             title { "Sunday" }
         }
@@ -83,15 +81,10 @@ fn placeholder_table(user: Option<&crate::user::User>) -> Markup {
                     // Chat Interface
                     div class="bg-base-100 rounded-lg p-4" {
                         @if let Some(user) = user {
-                            h3 class="text-xl font-semibold mb-4 text-center" {
-                                "Chat with Sunday AI"
-                            }
-                            p class="text-sm text-base-content/60 mb-4 text-center" {
-                                "Welcome back, " (user.email()) "!"
-                            }
+                    
                             // Deep Chat Component
                             deep-chat
-                                style="width: 100%; height: 700px; border-radius: 8px;"
+                                style="width: 400px; height: 400px; border-radius: 8px;"
                                 connect=r#"{"url": "/api/chat", "method": "POST"}"#
                                 intro-message=r#"{"text": "Hello! I'm Sunday AI. How can I help you today?"}"#
                             {}
