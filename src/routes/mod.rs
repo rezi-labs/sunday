@@ -4,6 +4,7 @@ use actix_web::{HttpMessage, HttpRequest};
 pub mod admin;
 pub mod assets;
 pub mod auth;
+pub mod chat;
 pub mod technical;
 pub mod user;
 

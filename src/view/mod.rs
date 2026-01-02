@@ -41,11 +41,14 @@ fn head() -> Markup {
             meta charset="utf-8";
             meta name="viewport" content="width=device-width, initial-scale=1";
             link rel="stylesheet" href="/assets/daisy.css";
-            link rel="stylesheet" href="/assets/themes.css";
-            link rel="stylesheet" href="/assets/tw.js";
+            link rel="stylesheet" href="/generated/assets/themes.css";
             link rel="stylesheet" href="/assets/app.css";
-            script src="/assets/htmx.js" {}
-            script src="/assets/theme-switcher.js" {}
+            (js("/assets/htmx.js"))
+            (js("/assets/tw.js"))
+            (js("/assets/theme-switcher.js"))
+            (js("/assets/htmxListener.js"))
+            (js("/assets/htmx-reload.js"))
+            (js_module("/assets/deepchat.js"))
             title { "Sunday" }
         }
     }
@@ -55,8 +58,7 @@ pub fn index(content: Markup, user: Option<&crate::user::User>) -> Markup {
     html! {
        (head())
         body hx-boost="true" {
-            (js("/assets/htmxListener.js"))
-            (js("/assets/htmx-reload.js"))
+
 
             div class="min-h-screen bg-base-100" {
                 (navbar::render(user))
@@ -79,28 +81,36 @@ fn placeholder_table(user: Option<&crate::user::User>) -> Markup {
                         }
                     }
 
-                    div class="bg-base-100 rounded-lg p-8 text-center" {
-                        div class="mb-6" {
-                            svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-16 w-16 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" {
-                                path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10";
-                            }
-                        }
-
-                        h3 class="text-2xl font-semibold mb-4" { "Content Coming Soon" }
-
-                        p class="text-base-content/70 mb-6" {
-                            "This is a placeholder for the main content area. "
-                            "Your application features will appear here."
-                        }
-
+                    // Chat Interface
+                    div class="bg-base-100 rounded-lg p-4" {
                         @if let Some(user) = user {
-                            p class="text-sm text-base-content/60" {
+                            h3 class="text-xl font-semibold mb-4 text-center" {
+                                "Chat with Sunday AI"
+                            }
+                            p class="text-sm text-base-content/60 mb-4 text-center" {
                                 "Welcome back, " (user.email()) "!"
                             }
+                            // Deep Chat Component
+                            deep-chat
+                                style="width: 100%; height: 700px; border-radius: 8px;"
+                                connect=r#"{"url": "/api/chat", "method": "POST"}"#
+                                intro-message=r#"{"text": "Hello! I'm Sunday AI. How can I help you today?"}"#
+                            {}
                         } @else {
-                            div class="space-x-4" {
-                                a href="/auth/login" class="btn btn-primary" {
-                                    "Sign In"
+                            div class="text-center" {
+                                div class="mb-6" {
+                                    svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-16 w-16 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" {
+                                        path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.418 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.418-8 9-8s9 3.582 9 8z";
+                                    }
+                                }
+                                h3 class="text-2xl font-semibold mb-4" { "Chat with Sunday AI" }
+                                p class="text-base-content/70 mb-6" {
+                                    "Please sign in to start chatting with Sunday AI."
+                                }
+                                div class="space-x-4" {
+                                    a href="/auth/login" class="btn btn-primary" {
+                                        "Sign In to Chat"
+                                    }
                                 }
                             }
                         }
@@ -114,5 +124,11 @@ fn placeholder_table(user: Option<&crate::user::User>) -> Markup {
 fn js(src: &str) -> Markup {
     html! {
         script src=(src) {}
+    }
+}
+
+fn js_module(src: &str) -> Markup {
+    html! {
+        script type="module" src=(src) {}
     }
 }

@@ -1,5 +1,6 @@
 use crate::oidc::OidcConfig;
 use actix_web::cookie::Key;
+use sqlx::PgPool;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -16,6 +17,7 @@ pub struct Server {
     admin_password: String,
     reset_admin_user: bool,
     oidc_config: OidcConfig,
+    pub pg_pool: PgPool,
 }
 
 pub type DatabaseClient = Arc<Mutex<Client>>;
@@ -118,6 +120,10 @@ pub fn from_env() -> Server {
 
     let oidc_config = OidcConfig::from_env();
 
+    // Create PgPool for sqlx operations (will be initialized in main.rs)
+    // For now, we'll use a placeholder that will be replaced in main.rs
+    let pg_pool = PgPool::connect_lazy(&db_url).expect("Failed to create PgPool");
+
     Server {
         port,
         host,
@@ -128,5 +134,6 @@ pub fn from_env() -> Server {
         admin_password,
         reset_admin_user,
         oidc_config,
+        pg_pool,
     }
 }

@@ -26,8 +26,8 @@ pub async fn run_migrations(client: &Client) -> Result<(), Box<dyn std::error::E
             include_str!("001_initial_schema.sql"),
         ),
         (
-            "003_make_year_required.sql",
-            include_str!("003_make_year_required.sql"),
+            "002_themes.sql",
+            include_str!("002_themes.sql"),
         ),
     ];
 

@@ -103,25 +103,12 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/admin")
                     .wrap(admin_guard::AdminGuard)
-                    .route("", web::get().to(routes::admin::admin_dashboard))
+                    .route("", web::get().to(routes::admin::dashboard))
+                    .route("/dashboard", web::get().to(routes::admin::dashboard))
+                    .route("/themes", web::get().to(routes::admin::theme_settings_page))
                     .route(
-                        "/users/create",
-                        web::get().to(routes::admin::create_user_form),
-                    )
-                    .route("/users/create", web::post().to(routes::admin::create_user))
-                    .route(
-                        "/users/{id}/edit",
-                        web::get().to(routes::admin::edit_user_form),
-                    )
-                    .route("/users/{id}", web::put().to(routes::admin::update_user))
-                    .route("/users/{id}", web::delete().to(routes::admin::delete_user))
-                    .route(
-                        "/users/{id}/toggle-active",
-                        web::post().to(routes::admin::toggle_user_active),
-                    )
-                    .route(
-                        "/users/{id}/toggle-admin",
-                        web::post().to(routes::admin::toggle_user_admin),
+                        "/themes",
+                        web::post().to(routes::admin::update_theme_settings),
                     ),
             )
             .service(
@@ -130,6 +117,7 @@ async fn main() -> std::io::Result<()> {
                     .route("/edit", web::get().to(routes::user::edit_profile_form))
                     .route("/update", web::put().to(routes::user::update_profile)),
             )
+            .service(routes::chat::scope())
             .service(view::index_route)
             .service(view::index_table_route)
             .service(view::about_endpoint)
@@ -146,11 +134,12 @@ async fn main() -> std::io::Result<()> {
 
 fn sunday_ascii_art() -> &'static str {
     r#"
-████████╗ █████╗ ███████╗████████╗███████╗
-╚══██╔══╝██╔══██╗██╔════╝╚══██╔══╝██╔════╝
-   ██║   ███████║███████╗   ██║   █████╗
-   ██║   ██╔══██║╚════██║   ██║   ██╔══╝
-   ██║   ██║  ██║███████║   ██║   ███████╗
-   ╚═╝   ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝
+    \   |   /          ███████╗██╗   ██╗███╗   ██╗██████╗  █████╗ ██╗   ██╗
+  .-.\_)_(/,-.       ██╔════╝██║   ██║████╗  ██║██╔══██╗██╔══██╗╚██╗ ██╔╝
+ /  _     _  \       ███████╗██║   ██║██╔██╗ ██║██║  ██║███████║ ╚████╔╝ 
+(   o   o   )       ╚════██║██║   ██║██║╚██╗██║██║  ██║██╔══██║  ╚██╔╝  
+ >  \_-_/  <        ███████║╚██████╔╝██║ ╚████║██████╔╝██║  ██║   ██║   
+ \_       _/        ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚═╝  ╚═╝   ╚═╝   
+   `-----'
     "#
 }

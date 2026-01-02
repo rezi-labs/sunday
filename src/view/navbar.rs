@@ -46,9 +46,7 @@ fn navigation_links(user: Option<&User>) -> Markup {
             }
             @if user.is_some() {
                 @if user.unwrap().is_admin() {
-                    a href="/admin/genres" class="text-base-content/70 hover:text-base-content transition-colors" {
-                        "Manage Genres"
-                    }
+                    // Admin links can be added here if needed
                 }
             }
         }
@@ -76,16 +74,7 @@ fn burger_menu(user: Option<&User>) -> Markup {
                     }
                     @if user.is_some() {
                         @if user.unwrap().is_admin() {
-                            li {
-                                a href="/admin/genres" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-base-200 transition-colors" {
-                                    span class="w-4 h-4 flex items-center opacity-60" {
-                                        svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" {
-                                            path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 4V2a1 1 0 00-1-1H4a1 1 0 00-1 1v2M7 4H4m3 0v5M4 4v5m3-5a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1m3 0h10a1 1 0 011 1v4a1 1 0 01-1 1H7" {};
-                                        }
-                                    }
-                                    "Manage Genres"
-                                }
-                            }
+                            // Admin links can be added here if needed
                         }
                     }
                     div class="divider my-1" {}

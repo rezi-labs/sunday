@@ -19,6 +19,7 @@ tokio = { version = "1.48", features = ["full"] }
 
 # Database
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-uuid-1"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "macros"] }
 sea-query = "0.31"
 postgres-openssl = "0.5"
 openssl = "0.10"
