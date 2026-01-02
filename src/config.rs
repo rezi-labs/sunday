@@ -20,6 +20,13 @@ pub struct Server {
     pub pg_pool: PgPool,
     theme_api_url: Option<String>,
     sunday_name: String,
+    // Multi-tenancy configuration
+    tenant_api_key: String,
+    db_user: String,
+    db_password: String,
+    db_host: String,
+    db_port: u16,
+    jwt_tenant_claim: String,
 }
 
 pub type DatabaseClient = Arc<Mutex<Client>>;
@@ -67,6 +74,37 @@ impl Server {
 
     pub fn sunday_name(&self) -> &str {
         &self.sunday_name
+    }
+
+    pub fn tenant_api_key(&self) -> &str {
+        &self.tenant_api_key
+    }
+
+    pub fn db_user(&self) -> &str {
+        &self.db_user
+    }
+
+    pub fn db_password(&self) -> &str {
+        &self.db_password
+    }
+
+    pub fn db_host(&self) -> &str {
+        &self.db_host
+    }
+
+    pub fn db_port(&self) -> u16 {
+        self.db_port
+    }
+
+    pub fn build_tenant_db_url(&self, tenant: &str) -> String {
+        format!(
+            "postgresql://{}:{}@{}:{}/{}",
+            self.db_user, self.db_password, self.db_host, self.db_port, tenant
+        )
+    }
+
+    pub fn jwt_tenant_claim(&self) -> &str {
+        &self.jwt_tenant_claim
     }
 }
 
@@ -136,6 +174,12 @@ pub fn from_env() -> Server {
     // Sunday name (with fallback)
     let sunday_name = env::var("SUNDAY_NAME").unwrap_or_else(|_| "Sunday".to_string());
 
+    // Multi-tenancy configuration
+    let tenant_api_key =
+        env::var("TENANT_API_KEY").expect("TENANT_API_KEY must be set for multi-tenant mode");
+
+    let jwt_tenant_claim = env::var("JWT_TENANT_CLAIM").unwrap_or_else(|_| "tenant".to_string());
+
     // Create PgPool for sqlx operations (will be initialized in main.rs)
     // For now, we'll use a placeholder that will be replaced in main.rs
     let pg_pool = PgPool::connect_lazy(&db_url).expect("Failed to create PgPool");
@@ -153,5 +197,11 @@ pub fn from_env() -> Server {
         pg_pool,
         theme_api_url,
         sunday_name,
+        tenant_api_key,
+        db_user,
+        db_password,
+        db_host,
+        db_port,
+        jwt_tenant_claim,
     }
 }

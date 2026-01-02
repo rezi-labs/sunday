@@ -82,10 +82,26 @@ async fn inject_local_user(req: HttpRequest) -> Result<HttpResponse> {
         .insert("sunday_session_id", &db_session.id)
         .map_err(|_e| ErrorInternalServerError("Session creation failed"))?;
 
+    // In local mode, grant access to "acme" tenant
+    let config = req
+        .app_data::<web::Data<Server>>()
+        .ok_or_else(|| ErrorInternalServerError("Server config not found"))?;
+
+    if config.local() {
+        log::info!("Local mode: granting access to 'acme' tenant for local user");
+        oidc::store_tenant_access_in_session(&session, &["acme".to_string()])?;
+
+        // Store the default tenant in the session so it can be injected into the User object
+        session
+            .insert("default_tenant", "acme")
+            .map_err(|_e| ErrorInternalServerError("Failed to store default tenant"))?;
+    }
+
     log::info!("Local user automatically logged in: {}", local_user.email);
 
+    // Redirect to tenant chat in local mode
     Ok(HttpResponse::SeeOther()
-        .append_header(("Location", "/"))
+        .append_header(("Location", "/acme/chat"))
         .finish())
 }
 
@@ -231,6 +247,46 @@ pub async fn oidc_callback(
     // Store user info in session
     oidc::store_user_in_session(&session, &user_info)?;
 
+    // Extract tenant information from ID token if available
+    if let Some(id_token) = &token_response.id_token {
+        let config = req
+            .app_data::<web::Data<Server>>()
+            .ok_or_else(|| ErrorInternalServerError("Server config not found"))?;
+
+        match oidc::extract_tenant_claims_from_jwt(id_token, config.jwt_tenant_claim()) {
+            Ok(tenants) => {
+                if !tenants.is_empty() {
+                    log::info!(
+                        "User {} has access to tenants: {:?}",
+                        user_info.email,
+                        tenants
+                    );
+                    oidc::store_tenant_access_in_session(&session, &tenants)?;
+
+                    // Store the first tenant as the default tenant
+                    if let Some(first_tenant) = tenants.first() {
+                        session
+                            .insert("default_tenant", first_tenant)
+                            .map_err(|_e| {
+                                ErrorInternalServerError("Failed to store default tenant")
+                            })?;
+                    }
+                } else {
+                    log::info!("User {} has no tenant claims in JWT", user_info.email);
+                }
+            }
+            Err(e) => {
+                log::warn!(
+                    "Failed to extract tenant claims from JWT for user {}: {:?}",
+                    user_info.email,
+                    e
+                );
+            }
+        }
+    } else {
+        log::debug!("No ID token available for tenant claim extraction");
+    }
+
     // Find or create user in database
     let user_model = match db::user::find_by_email(&user_info.email, db_client.as_ref()).await? {
         Some(existing_user) => {
@@ -288,7 +344,14 @@ pub async fn oidc_callback(
     session.remove("oidc_state");
     session.remove("oidc_code_verifier");
 
+    // Redirect to default tenant chat if available
+    let redirect_path = if let Ok(Some(default_tenant)) = session.get::<String>("default_tenant") {
+        format!("/{}/chat", default_tenant)
+    } else {
+        "/".to_string()
+    };
+
     Ok(HttpResponse::SeeOther()
-        .append_header(("Location", "/"))
+        .append_header(("Location", redirect_path))
         .finish())
 }

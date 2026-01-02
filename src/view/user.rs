@@ -343,3 +343,34 @@ pub fn edit_profile_form(user: &UserModel) -> Markup {
         }
     }
 }
+
+/// Chat page view
+pub fn chat_page(tenant: &str, server: &crate::config::Server, user: &crate::user::User) -> Markup {
+    let chat_url = format!("/{}/api/chat", tenant);
+
+    html! {
+        // Hero section
+        div class="hero bg-base-100 shadow-sm mb-8" {
+            div class="hero-content text-center py-8" {
+                div class="max-w-md" {
+                    h1 class="text-4xl font-bold text-primary" { "AI Chat" }
+                    p class="py-2 text-base-content/70" { "Chat with " (server.sunday_name()) " AI Assistant" }
+                }
+            }
+        }
+
+        // Main chat area
+        div class="container mx-auto px-4 py-8 max-w-6xl" {
+            div class="card bg-base-100 shadow-xl" {
+                div class="card-body p-2" {
+                    // Deep Chat Component
+                    deep-chat
+                        style="width: 100%; height: 600px; border-radius: 8px;"
+                        connect=(format!(r#"{{"url": "{}", "method": "POST"}}"#, chat_url))
+                        intro-message=(format!(r#"{{"text": "Hello {}! I'm {} AI. How can I help you today?"}}"#, user.user_name(), server.sunday_name()))
+                    {}
+                }
+            }
+        }
+    }
+}

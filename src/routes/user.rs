@@ -1,46 +1,59 @@
 use actix_web::{HttpRequest, Result as AwResult, web};
 use maud::Markup;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use tokio_postgres::Client;
 use validator::Validate;
 
 use crate::config::Server;
 use crate::db;
-use crate::routes::get_user;
+use crate::routes::{get_database_client, get_user};
 use crate::view;
 
 /// User dashboard handler
 pub async fn dashboard(server: web::Data<Server>, req: HttpRequest) -> AwResult<Markup> {
-    let content = maud::html! {
-        div class="text-center" {
-            p { "Please log in to access your dashboard" }
-            a href="/auth/login" class="btn btn-primary" { "Login" }
-        };
-    };
     let user = match get_user(req.clone()) {
         Some(user) => user,
         None => {
-            return Ok(view::index(content, None, &server));
+            let content = maud::html! {
+                div class="text-center" {
+                    p { "Please log in to access your dashboard" }
+                    a href="/auth/login" class="btn btn-primary" { "Login" }
+                }
+            };
+            return Ok(view::index(content, None, None, &server));
         }
     };
-    // Get user data from database
-    let db_client = req
-        .app_data::<web::Data<Arc<Mutex<Client>>>>()
-        .expect("Database client not found");
 
-    let db_user = match db::user::find_by_email(user.email(), db_client).await {
+    // Get user data from database
+    let db_client = match get_database_client(&req) {
+        Some(client) => client,
+        None => {
+            return Ok(view::index(
+                maud::html! {
+                    div class="text-center" {
+                        p { "Database connection error" }
+                        a href="/auth/login" class="btn btn-primary" { "Try Again" }
+                    }
+                },
+                None,
+                None,
+                &server,
+            ));
+        }
+    };
+
+    // Get current user from database
+    let db_user = match db::user::find_by_email(user.email(), &db_client).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             log::error!("User not found in database: {}", user.email());
             return Ok(view::index(
                 maud::html! {
                     div class="alert alert-error" {
-                        "User not found in database"
+                        "User not found"
                     }
                 },
-                Some(&user),
+                None,
+                None,
                 &server,
             ));
         }
@@ -52,7 +65,8 @@ pub async fn dashboard(server: web::Data<Server>, req: HttpRequest) -> AwResult<
                         "Error loading user data"
                     }
                 },
-                Some(&user),
+                None,
+                None,
                 &server,
             ));
         }
@@ -60,89 +74,85 @@ pub async fn dashboard(server: web::Data<Server>, req: HttpRequest) -> AwResult<
 
     Ok(view::index(
         view::user::dashboard(&db_user, &user),
+        user.tenant(),
         Some(&user),
         &server,
     ))
 }
 
 /// User profile edit form handler
-pub async fn edit_profile_form(server: web::Data<Server>, req: HttpRequest) -> AwResult<Markup> {
+pub async fn edit_profile_form(_server: web::Data<Server>, req: HttpRequest) -> AwResult<Markup> {
     let user = match get_user(req.clone()) {
         Some(user) => user,
         None => {
-            return Ok(view::index(
-                maud::html! {
-                    div class="text-center" {
-                        p { "Please log in to edit your profile" }
-                        a href="/auth/login" class="btn btn-primary" { "Login" }
-                    }
-                },
-                None,
-                &server,
-            ));
+            return Ok(maud::html! {
+                div class="text-center" {
+                    p { "Please log in to edit your profile" }
+                    a href="/auth/login" class="btn btn-primary" { "Login" }
+                }
+            });
         }
     };
 
     // Get user data from database
-    let db_client = req
-        .app_data::<web::Data<Arc<Mutex<Client>>>>()
-        .expect("Database client not found");
-
-    let db_user = match db::user::find_by_email(user.email(), db_client).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            log::error!("User not found in database: {}", user.email());
-            return Ok(view::index(
-                maud::html! {
-                    div class="alert alert-error" {
-                        "User not found in database"
-                    }
-                },
-                Some(&user),
-                &server,
-            ));
-        }
-        Err(e) => {
-            log::error!("Error fetching user from database: {e:?}");
-            return Ok(view::index(
-                maud::html! {
-                    div class="alert alert-error" {
-                        "Error loading user data"
-                    }
-                },
-                Some(&user),
-                &server,
-            ));
+    let db_client = match get_database_client(&req) {
+        Some(client) => client,
+        None => {
+            log::error!("Database client not found");
+            return Ok(maud::html! {
+                div class="alert alert-error" {
+                    "Database connection error"
+                }
+            });
         }
     };
 
-    Ok(view::index(
-        view::user::edit_profile_form(&db_user),
-        Some(&user),
-        &server,
-    ))
+    // Get current user from database
+    let db_user = match db::user::find_by_email(user.email(), &db_client).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            log::error!("User not found in database: {}", user.email());
+            return Ok(maud::html! {
+                div class="alert alert-error" {
+                    "User not found"
+                }
+            });
+        }
+        Err(e) => {
+            log::error!("Error fetching user from database: {e:?}");
+            return Ok(maud::html! {
+                div class="alert alert-error" {
+                    "Error loading user data"
+                }
+            });
+        }
+    };
+
+    Ok(view::user::edit_profile_form(&db_user))
 }
 
+/// User profile update form data
 #[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct UpdateProfileForm {
     #[validate(length(min = 1, message = "Username is required"))]
     pub username: String,
-    #[validate(email(message = "Invalid email format"))]
+
+    #[validate(email(message = "Invalid email address"))]
     pub email: String,
 }
 
-/// Update user profile handler
+/// User profile update handler
 pub async fn update_profile(
+    form: web::Form<UpdateProfileForm>,
     _server: web::Data<Server>,
     req: HttpRequest,
-    form: web::Json<UpdateProfileForm>,
 ) -> AwResult<Markup> {
     let user = match get_user(req.clone()) {
         Some(user) => user,
         None => {
             return Ok(maud::html! {
                 div class="alert alert-error" {
-                    "Unauthorized"
+                    "Please log in to update your profile"
                 }
             });
         }
@@ -164,12 +174,20 @@ pub async fn update_profile(
         });
     }
 
-    let db_client = req
-        .app_data::<web::Data<Arc<Mutex<Client>>>>()
-        .expect("Database client not found");
+    let db_client = match get_database_client(&req) {
+        Some(client) => client,
+        None => {
+            log::error!("Database client not found");
+            return Ok(maud::html! {
+                div class="alert alert-error" {
+                    "Database connection error"
+                }
+            });
+        }
+    };
 
     // Get current user from database
-    let db_user = match db::user::find_by_email(user.email(), db_client).await {
+    let db_user = match db::user::find_by_email(user.email(), &db_client).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             log::error!("User not found in database: {}", user.email());
@@ -201,7 +219,7 @@ pub async fn update_profile(
         is_admin: db_user.is_admin,
     };
 
-    match db::user::update(&updated_user, db_client).await {
+    match db::user::update(&updated_user, &db_client).await {
         Ok(_) => {
             log::info!("User profile updated successfully: {}", updated_user.email);
             Ok(view::user::dashboard_with_message(
@@ -219,4 +237,42 @@ pub async fn update_profile(
             })
         }
     }
+}
+
+/// Chat page handler
+pub async fn chat(server: web::Data<Server>, req: HttpRequest) -> AwResult<Markup> {
+    let user = match get_user(req.clone()) {
+        Some(user) => user,
+        None => {
+            let content = maud::html! {
+                div class="text-center" {
+                    p { "Please log in to access the chat" }
+                    a href="/auth/login" class="btn btn-primary" { "Login" }
+                }
+            };
+            return Ok(view::index(content, None, None, &server));
+        }
+    };
+
+    // Get tenant from user object
+    let tenant = match user.tenant() {
+        Some(t) => t,
+        None => {
+            log::error!("User has no tenant: {}", user.email());
+            let content = maud::html! {
+                div class="text-center" {
+                    p { "Tenant context required" }
+                    a href="/auth/login" class="btn btn-primary" { "Login" }
+                }
+            };
+            return Ok(view::index(content, None, None, &server));
+        }
+    };
+
+    Ok(view::index(
+        view::user::chat_page(tenant, &server, &user),
+        Some(tenant),
+        Some(&user),
+        &server,
+    ))
 }

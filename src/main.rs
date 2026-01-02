@@ -1,3 +1,4 @@
+use actix_files::Files;
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use env_logger::Env;
@@ -8,6 +9,8 @@ mod db;
 mod migrations;
 mod oidc;
 mod routes;
+mod tenant;
+mod tenant_middleware;
 mod text_utils;
 mod theme_service;
 mod user;
@@ -76,6 +79,29 @@ async fn main() -> std::io::Result<()> {
         c.theme_api_url().map(|s| s.to_string()),
     ));
 
+    // Initialize tenant manager
+    let tenant_manager = std::sync::Arc::new(tenant::TenantManager::new(c.clone()));
+
+    // Auto-create 'acme' tenant in local mode
+    if c.local() {
+        log::info!("Local mode detected - auto-creating 'acme' tenant");
+        match tenant_manager.create_tenant("acme").await {
+            Ok(_) => {
+                log::info!("Auto-created 'acme' tenant successfully");
+            }
+            Err(e) => {
+                // Don't fail startup if acme tenant already exists
+                if e.to_string().contains("already exists") {
+                    log::info!("'acme' tenant already exists, skipping creation");
+                } else {
+                    log::error!("Failed to auto-create 'acme' tenant: {:?}", e);
+                    log::error!("Server startup aborted due to tenant creation failure");
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+
     log::info!(
         "Configuring session middleware - secure cookies: {}",
         !c.local()
@@ -86,6 +112,10 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::default().exclude("/health"))
             .wrap(Logger::new("%a %{User-Agent}i").exclude("/health"))
             .wrap(user::UserExtractor)
+            .wrap(tenant_middleware::TenantMiddleware::new(
+                tenant_manager.clone(),
+                c.clone(),
+            ))
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
                     .cookie_secure(!c.local()) // Set to true in production with HTTPS
@@ -97,6 +127,9 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(db_client.clone()))
             .app_data(web::Data::new(oidc_client_arc.clone()))
             .app_data(web::Data::new(theme_service.clone()))
+            .app_data(web::Data::new(tenant_manager.clone()))
+            // Global routes (MUST be registered BEFORE /{tenant} catch-all)
+            .service(Files::new("/assets", "assets").show_files_listing())
             .service(
                 web::scope("/auth")
                     .route("", web::get().to(routes::auth::login_form))
@@ -105,8 +138,23 @@ async fn main() -> std::io::Result<()> {
                     .route("/oidc/login", web::get().to(routes::auth::oidc_login))
                     .route("/oidc/callback", web::get().to(routes::auth::oidc_callback)),
             )
+            .service(view::index_route)
+            .service(view::index_table_route)
+            .service(view::about_endpoint)
+            .service(view::about_readme_endpoint)
+            .service(routes::technical::health)
+            .service(routes::tenants::scope()) // Global tenant management routes
+            // Tenant-specific routes (MUST be registered AFTER global routes)
             .service(
-                web::scope("/api")
+                web::scope("/{tenant}/auth")
+                    .route("", web::get().to(routes::auth::login_form))
+                    .route("/login", web::get().to(routes::auth::login_form))
+                    .route("/logout", web::get().to(routes::auth::logout))
+                    .route("/oidc/login", web::get().to(routes::auth::oidc_login))
+                    .route("/oidc/callback", web::get().to(routes::auth::oidc_callback)),
+            )
+            .service(
+                web::scope("/{tenant}/api")
                     .route(
                         "/themes/css",
                         web::get().to(routes::technical::serve_theme_css),
@@ -114,10 +162,11 @@ async fn main() -> std::io::Result<()> {
                     .route(
                         "/themes/refresh",
                         web::post().to(routes::technical::refresh_theme_cache),
-                    ),
+                    )
+                    .service(routes::chat::chat_endpoint),
             )
             .service(
-                web::scope("/admin")
+                web::scope("/{tenant}/admin")
                     .wrap(admin_guard::AdminGuard)
                     .route("", web::get().to(routes::admin::dashboard))
                     .route("/dashboard", web::get().to(routes::admin::dashboard))
@@ -145,18 +194,14 @@ async fn main() -> std::io::Result<()> {
                     ),
             )
             .service(
-                web::scope("/dashboard")
+                web::scope("/{tenant}/dashboard")
                     .route("", web::get().to(routes::user::dashboard))
                     .route("/edit", web::get().to(routes::user::edit_profile_form))
                     .route("/update", web::put().to(routes::user::update_profile)),
             )
-            .service(routes::chat::scope())
-            .service(view::index_route)
-            .service(view::index_table_route)
-            .service(view::about_endpoint)
-            .service(view::about_readme_endpoint)
-            .service(routes::technical::health)
-            .service(routes::assets::scope())
+            .service(web::scope("/{tenant}/chat").route("", web::get().to(routes::user::chat)))
+            // Catch-all /{tenant} route (MUST be last)
+            .service(web::scope("/{tenant}").route("", web::get().to(routes::user::dashboard)))
     });
     server
         .bind((bind.host(), bind.port()))

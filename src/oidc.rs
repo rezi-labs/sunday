@@ -233,3 +233,75 @@ pub fn get_user_from_session(session: &actix_session::Session) -> Option<UserInf
 pub fn clear_user_from_session(session: &actix_session::Session) {
     session.remove("oidc_user");
 }
+
+// Extract tenant information from JWT id_token
+pub fn extract_tenant_claims_from_jwt(
+    id_token: &str,
+    tenant_claim_key: &str,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    // For now, we'll do a simple JWT payload decode without verification
+    // In production, you should verify the JWT signature
+
+    let parts: Vec<&str> = id_token.split('.').collect();
+    if parts.len() != 3 {
+        return Err("Invalid JWT format".into());
+    }
+
+    // Decode the payload (second part)
+    let payload = parts[1];
+
+    // Add padding if needed for base64 decoding
+    let padded_payload = match payload.len() % 4 {
+        0 => payload.to_string(),
+        2 => format!("{}==", payload),
+        3 => format!("{}=", payload),
+        _ => return Err("Invalid base64 padding".into()),
+    };
+
+    let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(padded_payload)?;
+
+    let claims: serde_json::Value = serde_json::from_slice(&decoded)?;
+
+    // Extract tenant information from the configured claim
+    let tenants = match claims.get(tenant_claim_key) {
+        Some(tenant_value) => match tenant_value {
+            serde_json::Value::String(single_tenant) => {
+                vec![single_tenant.clone()]
+            }
+            serde_json::Value::Array(tenant_array) => tenant_array
+                .iter()
+                .filter_map(|v| v.as_str())
+                .map(|s| s.to_string())
+                .collect(),
+            _ => {
+                log::warn!(
+                    "Tenant claim '{}' has unexpected format: {:?}",
+                    tenant_claim_key,
+                    tenant_value
+                );
+                vec![]
+            }
+        },
+        None => {
+            log::info!("No tenant claim '{}' found in JWT", tenant_claim_key);
+            vec![]
+        }
+    };
+
+    log::debug!("Extracted tenants from JWT: {:?}", tenants);
+    Ok(tenants)
+}
+
+// Store tenant information in session
+pub fn store_tenant_access_in_session(
+    session: &actix_session::Session,
+    tenants: &[String],
+) -> Result<(), actix_web::Error> {
+    session.insert("allowed_tenants", tenants).map_err(|e| {
+        actix_web::error::ErrorInternalServerError(format!(
+            "Failed to store tenant access in session: {}",
+            e
+        ))
+    })?;
+    Ok(())
+}

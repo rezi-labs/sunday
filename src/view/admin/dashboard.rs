@@ -12,7 +12,7 @@ pub fn dashboard(
     maud::html! {
         (super::super::head(server))
         body class="bg-base-100 min-h-screen" {
-            (navbar::render(current_user, server))
+            (navbar::render(current_user, server, None))
 
             // Main content area with better spacing
             div class="container mx-auto px-4 py-8 max-w-7xl" {

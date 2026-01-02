@@ -8,6 +8,7 @@ pub struct User {
     pub user_name: String,
     pub email: String,
     pub is_admin: bool,
+    pub tenant: Option<String>,
 }
 
 impl User {
@@ -17,6 +18,23 @@ impl User {
             email,
             user_name,
             is_admin,
+            tenant: None,
+        }
+    }
+
+    pub fn with_tenant(
+        id: String,
+        email: String,
+        user_name: String,
+        is_admin: bool,
+        tenant: Option<String>,
+    ) -> Self {
+        User {
+            id,
+            email,
+            user_name,
+            is_admin,
+            tenant,
         }
     }
 
@@ -35,6 +53,10 @@ impl User {
 
     pub fn is_admin(&self) -> bool {
         self.is_admin
+    }
+
+    pub fn tenant(&self) -> Option<&str> {
+        self.tenant.as_deref()
     }
 
     pub fn _initials(&self) -> String {
@@ -116,6 +138,52 @@ where
                 session.entries()
             );
 
+            // Extract tenant from URL path (first segment after /)
+            let path = req.path();
+            let path_segments: Vec<&str> = path.trim_start_matches('/').split('/').collect();
+            let route_tenant = if !path_segments.is_empty()
+                && !path.starts_with("/health")
+                && !path.starts_with("/api/tenants")
+                && !path.starts_with("/assets")
+                && !path.starts_with("/auth")
+                && path != "/"
+            {
+                // Validate tenant name format
+                let tenant_candidate = path_segments[0];
+                if tenant_candidate
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    // Check if user has access to this tenant
+                    match session.get::<Vec<String>>("allowed_tenants") {
+                        Ok(Some(allowed_tenants)) => {
+                            if allowed_tenants.contains(&tenant_candidate.to_string()) {
+                                log::debug!(
+                                    "User has access to tenant from route: {}",
+                                    tenant_candidate
+                                );
+                                Some(tenant_candidate.to_string())
+                            } else {
+                                log::warn!(
+                                    "User does not have access to tenant: {}",
+                                    tenant_candidate
+                                );
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Fallback to default tenant from session if no route tenant
+            let tenant =
+                route_tenant.or_else(|| session.get::<String>("default_tenant").ok().flatten());
+
             match session.get::<String>("sunday_session_id") {
                 Ok(Some(session_id)) => {
                     log::debug!("Found session ID in cookie: {session_id}");
@@ -127,15 +195,17 @@ where
                         match crate::db::session::validate(&session_id, db_client.as_ref()).await {
                             Ok(Some(user_model)) => {
                                 log::info!(
-                                    "User authenticated: {} ({})",
+                                    "User authenticated: {} ({}) with tenant: {:?}",
                                     user_model.email,
-                                    user_model.id
+                                    user_model.id,
+                                    tenant
                                 );
-                                let user = User::new(
+                                let user = User::with_tenant(
                                     user_model.id.to_string(),
                                     user_model.email,
                                     user_model.username.to_string(),
                                     user_model.is_admin,
+                                    tenant.clone(),
                                 );
                                 req.extensions_mut().insert(user);
                             }
@@ -163,12 +233,17 @@ where
                 Ok(None) => {
                     // No regular session, check for OIDC session
                     if let Some(oidc_user) = crate::oidc::get_user_from_session(&session) {
-                        log::debug!("Found OIDC user in session: {}", oidc_user.email);
-                        let user = User::new(
+                        log::debug!(
+                            "Found OIDC user in session: {} with tenant: {:?}",
+                            oidc_user.email,
+                            tenant
+                        );
+                        let user = User::with_tenant(
                             oidc_user.sub,
                             oidc_user.email,
                             oidc_user.name.unwrap_or_else(|| "OIDC User".to_string()),
                             false, // OIDC users are not admin by default - can be updated later
+                            tenant.clone(),
                         );
                         req.extensions_mut().insert(user);
                     } else {

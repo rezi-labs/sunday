@@ -36,21 +36,42 @@ pub struct ChatResponse {
 
 #[post("/chat")]
 async fn chat_endpoint(
+    _tenant: web::Path<String>,
     server: web::Data<Server>,
     req: HttpRequest,
     body: web::Json<ChatRequest>,
 ) -> AwResult<HttpResponse> {
     // Check if user is authenticated
-    let user = get_user(req);
-    if user.is_none() {
-        return Ok(HttpResponse::Unauthorized().json(ChatResponse {
-            text: String::new(),
-            error: Some("Authentication required".to_string()),
-        }));
-    }
+    let user = match get_user(req) {
+        Some(user) => user,
+        None => {
+            return Ok(HttpResponse::Unauthorized().json(ChatResponse {
+                text: String::new(),
+                error: Some("Authentication required".to_string()),
+            }));
+        }
+    };
 
-    let user = user.unwrap();
-    log::info!("Chat request from user: {}", user.email());
+    // Check if user has tenant context
+    let tenant = match user.tenant() {
+        Some(t) => t,
+        None => {
+            log::error!(
+                "User {} attempted to access chat without tenant context",
+                user.email()
+            );
+            return Ok(HttpResponse::Forbidden().json(ChatResponse {
+                text: String::new(),
+                error: Some("Tenant access required".to_string()),
+            }));
+        }
+    };
+
+    log::info!(
+        "Chat request from user: {} in tenant: {}",
+        user.email(),
+        tenant
+    );
     log::debug!("Chat request body: {:?}", body.messages);
 
     // Get the latest user message

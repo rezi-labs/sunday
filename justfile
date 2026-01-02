@@ -10,6 +10,7 @@ export POSTGRES_DB := "sunday"
 export ADMIN_USERNAME :='admin'
 export ADMIN_PASSWORD :='admin'
 export RESET_ADMIN_USER := 'false'
+export TENANT_API_KEY  := 'very-secure'
 
 docker:
     docker compose up
