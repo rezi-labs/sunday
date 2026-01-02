@@ -5,7 +5,6 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub mod session;
-pub mod theme;
 pub mod user;
 
 pub async fn create_db_client(

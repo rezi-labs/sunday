@@ -9,22 +9,18 @@ pub struct Model {
     pub id: Uuid,
     pub username: String,
     pub email: String,
-    pub password_hash: String,
-    pub salt: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
     pub last_login_at: Option<chrono::DateTime<chrono::Utc>>,
     pub is_active: bool,
     pub is_admin: bool,
-    pub reset_token: Option<String>,
-    pub reset_token_expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 pub async fn create(
     user_name: String,
     email: String,
     db_client: &DatabaseClient,
-    password_hash: String,
+    is_active: bool,
 ) -> Result<(), actix_web::Error> {
     let client = db_client.lock().await;
 
@@ -32,8 +28,8 @@ pub async fn create(
     let now = chrono::Utc::now();
 
     client.execute(
-        "INSERT INTO sunday_user (id, username, email, password_hash, salt, created_at, updated_at, last_login_at, is_active, is_admin, reset_token, reset_token_expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
-        &[&user_id, &user_name, &email, &password_hash, &None::<String>, &now, &None::<chrono::DateTime<chrono::Utc>>, &None::<chrono::DateTime<chrono::Utc>>, &true, &false, &None::<String>, &None::<chrono::DateTime<chrono::Utc>>],
+        "INSERT INTO sunday_user (id, username, email, created_at, updated_at, last_login_at, is_active, is_admin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        &[&user_id, &user_name, &email, &now, &None::<chrono::DateTime<chrono::Utc>>, &None::<chrono::DateTime<chrono::Utc>>, &is_active, &false],
     ).await
     .map_err(|_| ErrorInternalServerError("Failed to create user"))?;
 
@@ -44,7 +40,6 @@ pub async fn create_admin(
     user_name: String,
     email: String,
     db_client: &DatabaseClient,
-    password_hash: String,
 ) -> Result<(), actix_web::Error> {
     let client = db_client.lock().await;
 
@@ -52,8 +47,8 @@ pub async fn create_admin(
     let now = chrono::Utc::now();
 
     client.execute(
-        "INSERT INTO sunday_user (id, username, email, password_hash, salt, created_at, updated_at, last_login_at, is_active, is_admin, reset_token, reset_token_expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
-        &[&user_id, &user_name, &email, &password_hash, &None::<String>, &now, &None::<chrono::DateTime<chrono::Utc>>, &None::<chrono::DateTime<chrono::Utc>>, &true, &true, &None::<String>, &None::<chrono::DateTime<chrono::Utc>>],
+        "INSERT INTO sunday_user (id, username, email, created_at, updated_at, last_login_at, is_active, is_admin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        &[&user_id, &user_name, &email, &now, &None::<chrono::DateTime<chrono::Utc>>, &None::<chrono::DateTime<chrono::Utc>>, &true, &true],
     ).await
     .map_err(|_| ErrorInternalServerError("Failed to create admin user"))?;
 
@@ -67,7 +62,7 @@ pub async fn find_by_email(
     let client = db_client.lock().await;
 
     let row = client.query_opt(
-        "SELECT id, username, email, password_hash, salt, created_at, updated_at, last_login_at, is_active, is_admin, reset_token, reset_token_expires_at FROM sunday_user WHERE email = $1",
+        "SELECT id, username, email, created_at, updated_at, last_login_at, is_active, is_admin FROM sunday_user WHERE email = $1",
         &[&email],
     ).await
     .map_err(|e| {
@@ -81,15 +76,11 @@ pub async fn find_by_email(
                 id: row.get(0),
                 username: row.get(1),
                 email: row.get(2),
-                password_hash: row.get(3),
-                salt: row.get(4),
-                created_at: row.get(5),
-                updated_at: row.get(6),
-                last_login_at: row.get(7),
-                is_active: row.get(8),
-                is_admin: row.get(9),
-                reset_token: row.get(10),
-                reset_token_expires_at: row.get(11),
+                created_at: row.get(3),
+                updated_at: row.get(4),
+                last_login_at: row.get(5),
+                is_active: row.get(6),
+                is_admin: row.get(7),
             };
             Ok(Some(user))
         }
@@ -104,7 +95,7 @@ pub async fn find_by_username(
     let client = db_client.lock().await;
 
     let row = client.query_opt(
-        "SELECT id, username, email, password_hash, salt, created_at, updated_at, last_login_at, is_active, is_admin, reset_token, reset_token_expires_at FROM sunday_user WHERE username = $1",
+        "SELECT id, username, email, created_at, updated_at, last_login_at, is_active, is_admin FROM sunday_user WHERE username = $1",
         &[&username],
     ).await
     .map_err(|e| {
@@ -118,15 +109,11 @@ pub async fn find_by_username(
                 id: row.get(0),
                 username: row.get(1),
                 email: row.get(2),
-                password_hash: row.get(3),
-                salt: row.get(4),
-                created_at: row.get(5),
-                updated_at: row.get(6),
-                last_login_at: row.get(7),
-                is_active: row.get(8),
-                is_admin: row.get(9),
-                reset_token: row.get(10),
-                reset_token_expires_at: row.get(11),
+                created_at: row.get(3),
+                updated_at: row.get(4),
+                last_login_at: row.get(5),
+                is_active: row.get(6),
+                is_admin: row.get(7),
             };
             Ok(Some(user))
         }
@@ -163,7 +150,7 @@ pub async fn list_all(
         Some(term) => {
             let search_pattern = format!("%{}%", term.to_lowercase());
             client.query(
-                "SELECT id, username, email, password_hash, salt, created_at, updated_at, last_login_at, is_active, is_admin, reset_token, reset_token_expires_at 
+                "SELECT id, username, email, created_at, updated_at, last_login_at, is_active, is_admin 
                  FROM sunday_user 
                  WHERE LOWER(username) LIKE $1 OR LOWER(email) LIKE $1 
                  ORDER BY created_at DESC",
@@ -172,7 +159,7 @@ pub async fn list_all(
         }
         None => {
             client.query(
-                "SELECT id, username, email, password_hash, salt, created_at, updated_at, last_login_at, is_active, is_admin, reset_token, reset_token_expires_at FROM sunday_user ORDER BY created_at DESC",
+                "SELECT id, username, email, created_at, updated_at, last_login_at, is_active, is_admin FROM sunday_user ORDER BY created_at DESC",
                 &[],
             ).await
         }
@@ -189,15 +176,11 @@ pub async fn list_all(
             id: row.get(0),
             username: row.get(1),
             email: row.get(2),
-            password_hash: row.get(3),
-            salt: row.get(4),
-            created_at: row.get(5),
-            updated_at: row.get(6),
-            last_login_at: row.get(7),
-            is_active: row.get(8),
-            is_admin: row.get(9),
-            reset_token: row.get(10),
-            reset_token_expires_at: row.get(11),
+            created_at: row.get(3),
+            updated_at: row.get(4),
+            last_login_at: row.get(5),
+            is_active: row.get(6),
+            is_admin: row.get(7),
         })
         .collect();
 
@@ -309,7 +292,7 @@ pub async fn find_by_id(
     let client = db_client.lock().await;
 
     let row = client.query_opt(
-        "SELECT id, username, email, password_hash, salt, created_at, updated_at, last_login_at, is_active, is_admin, reset_token, reset_token_expires_at FROM sunday_user WHERE id = $1",
+        "SELECT id, username, email, created_at, updated_at, last_login_at, is_active, is_admin FROM sunday_user WHERE id = $1",
         &[&user_id],
     ).await
     .map_err(|e| {
@@ -323,15 +306,11 @@ pub async fn find_by_id(
                 id: row.get(0),
                 username: row.get(1),
                 email: row.get(2),
-                password_hash: row.get(3),
-                salt: row.get(4),
-                created_at: row.get(5),
-                updated_at: row.get(6),
-                last_login_at: row.get(7),
-                is_active: row.get(8),
-                is_admin: row.get(9),
-                reset_token: row.get(10),
-                reset_token_expires_at: row.get(11),
+                created_at: row.get(3),
+                updated_at: row.get(4),
+                last_login_at: row.get(5),
+                is_active: row.get(6),
+                is_admin: row.get(7),
             };
             Ok(Some(user))
         }
@@ -349,12 +328,10 @@ pub async fn create_oidc_user(
 
     let user_id = Uuid::new_v4();
     let now = chrono::Utc::now();
-    // Use empty string for password hash since OIDC users don't have passwords
-    let password_hash = "";
 
     client.execute(
-        "INSERT INTO sunday_user (id, username, email, password_hash, salt, created_at, updated_at, last_login_at, is_active, is_admin, reset_token, reset_token_expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
-        &[&user_id, &username, &email, &password_hash, &None::<String>, &now, &None::<chrono::DateTime<chrono::Utc>>, &None::<chrono::DateTime<chrono::Utc>>, &true, &false, &None::<String>, &None::<chrono::DateTime<chrono::Utc>>],
+        "INSERT INTO sunday_user (id, username, email, created_at, updated_at, last_login_at, is_active, is_admin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        &[&user_id, &username, &email, &now, &None::<chrono::DateTime<chrono::Utc>>, &None::<chrono::DateTime<chrono::Utc>>, &true, &false],
     ).await
     .map_err(|e| {
         log::error!("Failed to create OIDC user: {e:?}");
@@ -366,15 +343,11 @@ pub async fn create_oidc_user(
         id: user_id,
         username: username.to_string(),
         email: email.to_string(),
-        password_hash: password_hash.to_string(),
-        salt: None,
         created_at: now,
         updated_at: None,
         last_login_at: None,
         is_active: true,
         is_admin: false,
-        reset_token: None,
-        reset_token_expires_at: None,
     };
 
     log::info!("Created new OIDC user: {} ({})", email, user_id);
@@ -383,12 +356,10 @@ pub async fn create_oidc_user(
 
 pub async fn ensure_admin_user(
     admin_username: &str,
-    admin_password: &str,
+    _admin_password: &str, // Keep parameter for compatibility but ignore it
     db_client: &DatabaseClient,
     reset_admin: bool,
 ) -> Result<(), actix_web::Error> {
-    use crate::authentication;
-
     // Check if admin user already exists
     let existing_admin = find_by_username(admin_username, db_client).await?;
 
@@ -404,18 +375,9 @@ pub async fn ensure_admin_user(
     if existing_admin.is_none() {
         log::info!("Creating admin user: {admin_username}");
 
-        let password_hash = authentication::hash_password(admin_password)
-            .map_err(|_| ErrorInternalServerError("Password hashing failed"))?;
-
         let admin_email = format!("{admin_username}@admin.local");
 
-        create_admin(
-            admin_username.to_string(),
-            admin_email,
-            db_client,
-            password_hash,
-        )
-        .await?;
+        create_admin(admin_username.to_string(), admin_email, db_client).await?;
 
         log::info!("Admin user created successfully");
     } else {

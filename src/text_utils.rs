@@ -24,26 +24,6 @@ pub fn remove_unclosed_parens_after_brackets(input: &str) -> String {
         .to_string()
 }
 
-/// Generates a random password with specified length
-/// Contains uppercase, lowercase, numbers, and special characters
-pub fn generate_password(length: usize) -> String {
-    use rand::Rng;
-
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
-                            abcdefghijklmnopqrstuvwxyz\
-                            0123456789\
-                            !@#$%^&*";
-
-    let mut rng = rand::thread_rng();
-
-    (0..length)
-        .map(|_| {
-            let idx = rng.gen_range(0..CHARSET.len());
-            CHARSET[idx] as char
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

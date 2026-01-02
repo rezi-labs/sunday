@@ -18,6 +18,7 @@ pub struct Server {
     reset_admin_user: bool,
     oidc_config: OidcConfig,
     pub pg_pool: PgPool,
+    theme_api_url: Option<String>,
 }
 
 pub type DatabaseClient = Arc<Mutex<Client>>;
@@ -57,6 +58,10 @@ impl Server {
 
     pub fn oidc_config(&self) -> &OidcConfig {
         &self.oidc_config
+    }
+
+    pub fn theme_api_url(&self) -> Option<&str> {
+        self.theme_api_url.as_deref()
     }
 }
 
@@ -120,6 +125,9 @@ pub fn from_env() -> Server {
 
     let oidc_config = OidcConfig::from_env();
 
+    // Theme API URL (optional)
+    let theme_api_url = env::var("THEME_API_URL").ok();
+
     // Create PgPool for sqlx operations (will be initialized in main.rs)
     // For now, we'll use a placeholder that will be replaced in main.rs
     let pg_pool = PgPool::connect_lazy(&db_url).expect("Failed to create PgPool");
@@ -135,5 +143,6 @@ pub fn from_env() -> Server {
         reset_admin_user,
         oidc_config,
         pg_pool,
+        theme_api_url,
     }
 }

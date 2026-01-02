@@ -1,28 +1,23 @@
-use crate::config::DatabaseClient;
-use crate::{authentication, db, oidc, view};
-use actix_session::Session;
+use crate::config::{DatabaseClient, Server};
+use crate::{db, oidc, view};
+use actix_session::{Session, SessionExt};
 use actix_web::{HttpRequest, HttpResponse, Result, error::ErrorInternalServerError, web};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use uuid::Uuid;
-use validator::Validate;
-
-// Form struct for login
-#[derive(Deserialize, Validate)]
-pub struct LoginForm {
-    pub username: String,
-    pub password: String,
-}
 
 #[derive(Serialize)]
 pub struct AuthError {
     pub message: String,
 }
 
-pub async fn login_form(req: HttpRequest) -> Result<HttpResponse> {
+pub async fn login_form(req: HttpRequest, config: web::Data<Server>) -> Result<HttpResponse> {
+    // If LOCAL=true, automatically inject a local user
+    if config.local() {
+        return inject_local_user(req).await;
+    }
+
     let query = req.query_string();
-    let message = if query.contains("message=") {
-        Some("Account created successfully! Please log in.".to_string())
-    } else if query.contains("error=") {
+    let message = if query.contains("error=") {
         let error_msg = query
             .split("error=")
             .nth(1)
@@ -35,60 +30,60 @@ pub async fn login_form(req: HttpRequest) -> Result<HttpResponse> {
         None
     };
 
-    let username_value = if query.contains("username=") {
-        query
-            .split("username=")
-            .nth(1)
-            .map(|s| s.split('&').next().unwrap_or(""))
-            .and_then(|s| urlencoding::decode(s).ok())
-            .map(|s| s.to_string())
-            .unwrap_or_default()
-    } else {
-        String::new()
-    };
-
-    let html = view::auth::login_form(username_value, message.as_deref());
+    let html = view::auth::login_form(message.as_deref());
     Ok(HttpResponse::Ok()
         .content_type("text/html")
         .body(html.into_string()))
 }
 
-pub async fn login(
-    form: web::Form<LoginForm>,
-    session: Session,
-    req: HttpRequest,
-    db_client: web::Data<DatabaseClient>,
-) -> Result<HttpResponse> {
-    let db_client = db_client.as_ref();
-    let user = db::user::find_by_username(&form.username, db_client).await?;
-    let user = match user {
+async fn inject_local_user(req: HttpRequest) -> Result<HttpResponse> {
+    let session = req.get_session();
+    let db_client = req
+        .app_data::<web::Data<DatabaseClient>>()
+        .ok_or_else(|| ErrorInternalServerError("Database client not found"))?;
+
+    // Create or find the local development user
+    let local_user = match db::user::find_by_email("local@dev.local", db_client).await? {
         Some(user) => user,
         None => {
-            return Ok(HttpResponse::Unauthorized().json(AuthError {
-                message: "Invalid username or password".to_string(),
-            }));
+            log::info!("Creating local development user");
+            db::user::create(
+                "local".to_string(),
+                "local@dev.local".to_string(),
+                db_client,
+                true, // is_active
+            )
+            .await?;
+
+            // Make the user an admin
+            if let Some(mut user) = db::user::find_by_email("local@dev.local", db_client).await? {
+                db::user::toggle_user_admin_status(&user.id, db_client).await?;
+                user.is_admin = true; // Update local copy
+                user
+            } else {
+                return Err(ErrorInternalServerError("Failed to create local user"));
+            }
         }
     };
-    let is_valid = authentication::verify_password(&form.password, &user.password_hash)
-        .map_err(|_| ErrorInternalServerError("Password verification failed"))?;
-    if !is_valid {
-        return Ok(HttpResponse::Unauthorized().json(AuthError {
-            message: "Invalid username or password".to_string(),
-        }));
-    }
-    if !user.is_active {
-        return Ok(HttpResponse::Unauthorized().json(AuthError {
-            message: "Account is disabled".to_string(),
-        }));
-    }
-    db::user::update_last_login(&user, db_client).await?;
-    log::info!("Creating database session for user: {}", user.id);
-    let db_session = db::session::create(user.id, &req, db_client)
+
+    // Update last login
+    db::user::update_last_login(&local_user, db_client).await?;
+
+    // Create session
+    log::info!(
+        "Creating database session for local user: {}",
+        local_user.id
+    );
+    let db_session = db::session::create(local_user.id, &req, db_client)
         .await
         .map_err(|_e| ErrorInternalServerError("Failed to create session"))?;
+
     session
         .insert("sunday_session_id", &db_session.id)
         .map_err(|_e| ErrorInternalServerError("Session creation failed"))?;
+
+    log::info!("Local user automatically logged in: {}", local_user.email);
+
     Ok(HttpResponse::SeeOther()
         .append_header(("Location", "/"))
         .finish())

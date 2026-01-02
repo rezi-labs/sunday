@@ -41,11 +41,10 @@ fn head() -> Markup {
             meta charset="utf-8";
             meta name="viewport" content="width=device-width, initial-scale=1";
             link rel="stylesheet" href="/assets/daisy.css";
-            link rel="stylesheet" href="/generated/assets/themes.css";
+            link rel="stylesheet" href="/api/themes/css";
             link rel="stylesheet" href="/assets/app.css";
             (js("/assets/htmx.js"))
             (js("/assets/tw.js"))
-            (js("/assets/theme-switcher.js"))
             (js("/assets/htmxListener.js"))
             (js("/assets/htmx-reload.js"))
             (js_module("/assets/deepchat.js"))

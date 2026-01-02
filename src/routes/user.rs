@@ -185,15 +185,11 @@ pub async fn update_profile(
         id: db_user.id,
         username: form.username.clone(),
         email: form.email.clone(),
-        password_hash: db_user.password_hash,
-        salt: db_user.salt,
-        is_active: db_user.is_active,
-        is_admin: db_user.is_admin,
         created_at: db_user.created_at,
         updated_at: Some(chrono::Utc::now()),
         last_login_at: db_user.last_login_at,
-        reset_token: db_user.reset_token,
-        reset_token_expires_at: db_user.reset_token_expires_at,
+        is_active: db_user.is_active,
+        is_admin: db_user.is_admin,
     };
 
     match db::user::update(&updated_user, db_client).await {

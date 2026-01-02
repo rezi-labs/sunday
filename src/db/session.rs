@@ -24,11 +24,10 @@ pub async fn validate(
     log::debug!("Validating session ID: {session_id}");
 
     let row = client.query_opt(
-        "SELECT u.id, u.username, u.email, u.password_hash, u.salt, u.created_at, u.updated_at, u.last_login_at, u.is_active, u.reset_token, u.reset_token_expires_at, u.is_admin 
-         FROM session s 
-         INNER JOIN sunday_user u ON s.user_id = u.id 
-         WHERE s.id = $1 AND s.expires_at > $2",
-        &[&session_id, &chrono::Utc::now()],
+        "SELECT u.id, u.username, u.email, u.created_at, u.updated_at, u.last_login_at, u.is_active, u.is_admin 
+         FROM session s JOIN sunday_user u ON s.user_id = u.id 
+         WHERE s.id = $1 AND s.expires_at > NOW() AND u.is_active = true",
+        &[&session_id],
     ).await
     .map_err(|e| {
         log::error!("Failed to validate session {session_id}: {e:?}");
@@ -41,15 +40,11 @@ pub async fn validate(
                 id: row.get(0),
                 username: row.get(1),
                 email: row.get(2),
-                password_hash: row.get(3),
-                salt: row.get(4),
-                created_at: row.get(5),
-                updated_at: row.get(6),
-                last_login_at: row.get(7),
-                is_active: row.get(8),
-                reset_token: row.get(9),
-                reset_token_expires_at: row.get(10),
-                is_admin: row.get(11),
+                created_at: row.get(3),
+                updated_at: row.get(4),
+                last_login_at: row.get(5),
+                is_active: row.get(6),
+                is_admin: row.get(7),
             };
 
             log::info!("Valid session found for user: {} ({})", user.email, user.id);
