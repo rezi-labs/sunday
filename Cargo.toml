@@ -32,3 +32,4 @@ rig-postgres = "0.1.0"
 # Database
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "macros", "migrate", "uuid"] }
 pgvector = { version = "0.4", features = ["sqlx"] }
+uuid = { version = "1.11", features = ["serde", "v4"] }

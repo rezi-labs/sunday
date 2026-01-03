@@ -45,6 +45,46 @@ pub async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error
     .execute(&pool)
     .await?;
 
+    // Create entities table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS entities (
+          id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+          name text NOT NULL UNIQUE,
+          created_at timestamptz DEFAULT now()
+        )
+    "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Create entity_documents junction table (many-to-many)
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS entity_documents (
+          entity_id uuid NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+          document_id uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+          created_at timestamptz DEFAULT now(),
+          PRIMARY KEY (entity_id, document_id)
+        )
+    "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Create indexes for entity_documents junction table
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS entity_documents_entity_idx ON entity_documents(entity_id)",
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS entity_documents_document_idx ON entity_documents(document_id)",
+    )
+    .execute(&pool)
+    .await?;
+
     log::info!("Database migrations completed successfully");
 
     pool.close().await;

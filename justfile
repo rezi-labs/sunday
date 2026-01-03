@@ -8,7 +8,7 @@ export API_KEY_ONE := 'very-secure-key-one'
 export API_KEY_TWO := 'very-secure-key-two'
 
 run:
-    @echo "Starting PostgreSQL database..."
+    just db-stop
     just db-start
     @echo "Waiting for database to be ready..."
     @sleep 3

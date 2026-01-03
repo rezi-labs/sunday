@@ -12,7 +12,6 @@ pub struct AzureOpenAIConfig {
 pub struct Server {
     port: u16,
     host: String,
-    local: bool,
     fake_ai: bool,
     sunday_name: String,
     // API key authentication
@@ -28,10 +27,6 @@ impl Server {
 
     pub fn host(&self) -> String {
         self.host.clone()
-    }
-
-    pub fn local(&self) -> bool {
-        self.local
     }
 
     pub fn fake_ai(&self) -> bool {
@@ -61,9 +56,6 @@ impl Server {
 }
 
 pub fn from_env() -> Server {
-    let local = env::var("LOCAL").unwrap_or("false".to_string());
-    let local = local == "true";
-
     let fake_ai = env::var("FAKE_AI").unwrap_or("false".to_string());
     let fake_ai = fake_ai == "true";
 
@@ -106,7 +98,6 @@ pub fn from_env() -> Server {
     Server {
         port,
         host,
-        local,
         fake_ai,
         sunday_name,
         api_keys,

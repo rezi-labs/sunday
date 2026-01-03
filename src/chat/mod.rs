@@ -1,9 +1,9 @@
 use crate::api_key_middleware::AuthState;
 use crate::config::Server;
 use crate::models::AiModels;
-use crate::tenant_middleware::get_tenant_from_path;
-use actix_web::{HttpRequest, HttpResponse, Result as AwResult, post, web};
+use actix_web::{HttpResponse, Result as AwResult, post, web};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 
 mod handler;
 
@@ -17,6 +17,7 @@ pub struct ChatResponse {
 #[derive(Deserialize, Debug)]
 pub struct ChatRequest {
     pub messages: Vec<MessageContent>,
+    pub entity_id: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -33,28 +34,30 @@ pub async fn chat_endpoint(
     _auth_state: AuthState,
     server: web::Data<Server>,
     ai_models: Option<web::Data<std::sync::Arc<AiModels>>>,
-    req: HttpRequest,
+    pool: Option<web::Data<PgPool>>,
     body: web::Json<ChatRequest>,
 ) -> AwResult<HttpResponse> {
-    let tenant = match get_tenant_from_path(&req) {
-        Some(t) => t,
-        None => {
-            log::error!("Attempted to access chat without tenant in URL");
-            return Ok(HttpResponse::BadRequest().json(ChatResponse {
-                text: String::new(),
-                error: Some("Invalid tenant in URL".to_string()),
-            }));
-        }
-    };
+    let entity_id = &body.entity_id;
 
-    let context = handler::Context::new("", server.sunday_name(), &tenant, Vec::new());
+    // Validate entity_id is not empty
+    if entity_id.is_empty() {
+        log::error!("Attempted to access chat without entity_id");
+        return Ok(HttpResponse::BadRequest().json(ChatResponse {
+            text: String::new(),
+            error: Some("entity_id is required".to_string()),
+        }));
+    }
 
-    let res = handler::message(
+    let context = handler::Context::new("", server.sunday_name(), entity_id);
+
+    let res = handler::message_async(
         body.0,
         &context,
         ai_models.as_ref().map(|m| m.as_ref().as_ref()),
+        pool.as_ref().map(|p| p.as_ref()),
         server.fake_ai(),
-    );
+    )
+    .await;
 
     Ok(HttpResponse::Ok().json(ChatResponse {
         text: res.text,
