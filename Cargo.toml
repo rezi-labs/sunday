@@ -24,3 +24,7 @@ log = "0.4"
 
 # Future utilities - for async middleware
 futures-util = { version = "0.3", default-features = false }
+
+# LLM
+rig-core = "0.27.0"
+rig-postgres = "0.1.0"
