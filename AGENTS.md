@@ -1,14 +1,10 @@
 # Agent Guidelines for Taste Codebase
 
-## Files to Exclude
+## Documentation
 
-When working with this codebase, agents should exclude these large generated/vendor files:
+For LLM stuff always use rig-core and rig-postgres
+https://github.com/0xPlaygrounds/rig/tree/main/rig-integrations/rig-postgres
 
-- `assets/tw.js`
-- `assets/daisy.css`
-- `assets/htmx.js`
-
-**Important**: Always exclude these files when scanning or searching the project to avoid processing large generated files that aren't relevant for code analysis or modifications.
 
 ## Build Commands
 
@@ -21,12 +17,8 @@ When working with this codebase, agents should exclude these large generated/ven
 
 ## Code Style & Conventions
 
-- Organize code: `db/` (entities), `routes/` (handlers), `view/` (templates)
 - Import order: std, external crates, internal modules
 - Use `Result<HttpResponse>` for route handlers
-- Database operations use SeaORM with proper error handling
-- Validate forms with `validator` crate, return JSON errors
 - Use `log::info/warn/error` for logging, not `println!`
-- Session management via actix-session with database storage
 - Use `async move` blocks for async handlers
-- Database entities: derive Serialize/Deserialize, use Uuid primary keys
+- Database entities: derive Serialize/Deserialize
