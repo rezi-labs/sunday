@@ -1,4 +1,4 @@
-# Agent Guidelines for Taste Codebase
+# Agent Guidelines Codebase
 
 ## Documentation
 

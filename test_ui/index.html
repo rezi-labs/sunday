@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sunday API Test UI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Sunday API Test UI</h1>
+            <div class="health-status">
+                <span id="health-indicator" class="status-indicator"></span>
+                <span id="health-text">Checking...</span>
+            </div>
+        </header>
+
+        <div class="config-section">
+            <h2>Configuration</h2>
+            <div class="form-group">
+                <label for="api-url">API URL:</label>
+                <input type="text" id="api-url" value="http://localhost:3000" placeholder="http://localhost:3000">
+            </div>
+            <div class="form-group">
+                <label for="api-key">API Key:</label>
+                <input type="password" id="api-key" value="very-secure-key-one" placeholder="your-api-key-here">
+            </div>
+            <div class="form-group">
+                <label for="entity-id">Entity ID:</label>
+                <input type="text" id="entity-id" value="acme-corp" placeholder="acme-corp">
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" data-tab="chat">Chat</button>
+            <button class="tab-button" data-tab="documents">Documents</button>
+        </div>
+
+        <div id="chat-tab" class="tab-content active">
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <div class="system-message">Welcome! Start chatting with your entity.</div>
+                </div>
+                <div class="chat-input-container">
+                    <textarea id="chat-input" placeholder="Type your message..." rows="3"></textarea>
+                    <button id="send-button" class="primary-button">Send</button>
+                    <button id="clear-chat" class="secondary-button">Clear Chat</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="documents-tab" class="tab-content">
+            <div class="documents-section">
+                <h2>Add Document</h2>
+                <div class="form-group">
+                    <label for="document-content">Document Content:</label>
+                    <textarea id="document-content" placeholder="Enter document content..." rows="6"></textarea>
+                </div>
+                <button id="add-document" class="primary-button">Add Document</button>
+                
+                <div class="document-examples">
+                    <h3>Quick Examples:</h3>
+                    <button class="example-button" data-content="Acme Corporation was founded in 1920. We specialize in manufacturing anvils and explosives. Our headquarters is located in Phoenix, Arizona.">Company Info</button>
+                    <button class="example-button" data-content="Our CEO is Jane Smith. She has been leading the company since 2015. Under her leadership, we expanded to 50 countries worldwide.">CEO Info</button>
+                    <button class="example-button" data-content="We offer 24/7 customer support. Contact us at support@acme.com or call 1-800-ACME-NOW. Our support team typically responds within 2 hours.">Support Info</button>
+                </div>
+
+                <div id="document-response" class="response-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

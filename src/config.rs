@@ -18,6 +18,8 @@ pub struct Server {
     api_keys: Vec<String>,
     // Azure OpenAI
     azure_openai: Option<AzureOpenAIConfig>,
+    // CORS allowed origins
+    cors_allowed_origins: Vec<String>,
 }
 
 impl Server {
@@ -52,6 +54,10 @@ impl Server {
 
     pub fn azure_openai(&self) -> Option<&AzureOpenAIConfig> {
         self.azure_openai.as_ref()
+    }
+
+    pub fn cors_allowed_origins(&self) -> &[String] {
+        &self.cors_allowed_origins
     }
 }
 
@@ -95,6 +101,14 @@ pub fn from_env() -> Server {
         None
     };
 
+    // CORS configuration
+    let cors_allowed_origins = env::var("CORS_ALLOWED_ORIGINS")
+        .unwrap_or_else(|_| "*".to_string())
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
     Server {
         port,
         host,
@@ -102,5 +116,6 @@ pub fn from_env() -> Server {
         sunday_name,
         api_keys,
         azure_openai,
+        cors_allowed_origins,
     }
 }

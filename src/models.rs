@@ -114,6 +114,28 @@ impl AiModels {
         Ok(document_id)
     }
 
+    /// Insert multiple document chunks and link them to an entity
+    /// Returns the document IDs of all inserted chunks
+    pub async fn insert_document_chunks(
+        &self,
+        pool: &PgPool,
+        chunks: Vec<String>,
+        entity_id: Uuid,
+    ) -> Result<Vec<Uuid>, Box<dyn std::error::Error>> {
+        let mut document_ids = Vec::new();
+
+        for chunk in chunks {
+            if chunk.trim().is_empty() {
+                continue;
+            }
+
+            let document_id = self.insert_document(pool, &chunk, entity_id).await?;
+            document_ids.push(document_id);
+        }
+
+        Ok(document_ids)
+    }
+
     /// Query documents for an entity using vector similarity
     pub async fn query_entity_documents(
         &self,

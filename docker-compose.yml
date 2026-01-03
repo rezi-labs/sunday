@@ -8,6 +8,7 @@ services:
       API_KEY_ONE: "very-secure-one"
       API_KEY_TWO: "very-secure-two"
       RUST_LOG: "debug"
+      DATABASE_URL: "postgresql://sunday:sunday_password@postgres:5432/sunday"
     ports:
       - "3000:3000"
     restart: unless-stopped

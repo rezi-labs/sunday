@@ -1,3 +1,4 @@
+use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use env_logger::Env;
 use sqlx::postgres::PgPoolOptions;
@@ -75,7 +76,31 @@ async fn main() -> std::io::Result<()> {
     };
 
     let server = HttpServer::new(move || {
+        // Configure CORS
+        let cors = if c.cors_allowed_origins().contains(&"*".to_string()) {
+            // Allow all origins (for development)
+            log::warn!("CORS configured to allow all origins - this should not be used in production");
+            Cors::permissive()
+        } else {
+            // Allow specific origins (for production)
+            let mut cors = Cors::default()
+                .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+                .allowed_headers(vec![
+                    actix_web::http::header::AUTHORIZATION,
+                    actix_web::http::header::ACCEPT,
+                    actix_web::http::header::CONTENT_TYPE,
+                ])
+                .max_age(3600);
+
+            for origin in c.cors_allowed_origins() {
+                log::info!("CORS: allowing origin {}", origin);
+                cors = cors.allowed_origin(origin);
+            }
+            cors
+        };
+
         let mut app = App::new()
+            .wrap(cors)
             .wrap(Logger::default().exclude("/health"))
             .wrap(Logger::new("%a %{User-Agent}i").exclude("/health"))
             .wrap(api_key_middleware::ApiKeyAuth::new(c.api_keys().to_vec()))
@@ -94,7 +119,8 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api")
                     .service(chat::chat_endpoint)
-                    .service(documents::create_document),
+                    .service(documents::create_document)
+                    .service(documents::upload_document),
             )
     });
     server
