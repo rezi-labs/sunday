@@ -4,6 +4,7 @@ services:
     container_name: sunday
     environment:
       LOCAL: "true"
+      FAKE_AI: "true"
       API_KEY_ONE: "very-secure-one"
       API_KEY_TWO: "very-secure-two"
       RUST_LOG: "debug"

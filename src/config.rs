@@ -5,6 +5,7 @@ pub struct Server {
     port: u16,
     host: String,
     local: bool,
+    fake_ai: bool,
     sunday_name: String,
     // API key authentication
     api_keys: Vec<String>,
@@ -21,6 +22,10 @@ impl Server {
 
     pub fn local(&self) -> bool {
         self.local
+    }
+
+    pub fn fake_ai(&self) -> bool {
+        self.fake_ai
     }
 
     pub fn sunday_name(&self) -> &str {
@@ -45,6 +50,9 @@ pub fn from_env() -> Server {
     let local = env::var("LOCAL").unwrap_or("false".to_string());
     let local = local == "true";
 
+    let fake_ai = env::var("FAKE_AI").unwrap_or("false".to_string());
+    let fake_ai = fake_ai == "true";
+
     let port: u16 = env::var("PORT")
         .or_else(|_| env::var("g_port"))
         .map(|e| e.parse().expect("could not parse port"))
@@ -68,6 +76,7 @@ pub fn from_env() -> Server {
         port,
         host,
         local,
+        fake_ai,
         sunday_name,
         api_keys,
     }

@@ -2,6 +2,7 @@ use actix_web::{App, HttpServer, middleware::Logger, web};
 use env_logger::Env;
 
 mod api_key_middleware;
+mod chat;
 mod config;
 mod routes;
 mod tenant;
@@ -56,7 +57,7 @@ async fn main() -> std::io::Result<()> {
             // Global tenant management routes
             .service(routes::tenants::scope())
             // Tenant-specific API routes
-            .service(web::scope("/{tenant}/api").service(routes::chat::chat_endpoint))
+            .service(web::scope("/{tenant}/api").service(chat::chat_endpoint))
     });
     server
         .bind((bind.host(), bind.port()))
