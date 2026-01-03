@@ -1,5 +1,6 @@
 use crate::api_key_middleware::AuthState;
 use crate::config::Server;
+use crate::models::AiModels;
 use crate::tenant_middleware::get_tenant_from_path;
 use actix_web::{HttpRequest, HttpResponse, Result as AwResult, post, web};
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,7 @@ pub async fn chat_endpoint(
     // just check if not how caller is authenticated
     _auth_state: AuthState,
     server: web::Data<Server>,
+    ai_models: Option<web::Data<std::sync::Arc<AiModels>>>,
     req: HttpRequest,
     body: web::Json<ChatRequest>,
 ) -> AwResult<HttpResponse> {
@@ -47,7 +49,12 @@ pub async fn chat_endpoint(
 
     let context = handler::Context::new("", server.sunday_name(), &tenant, Vec::new());
 
-    let res = handler::message(body.0, &context, server.fake_ai());
+    let res = handler::message(
+        body.0,
+        &context,
+        ai_models.as_ref().map(|m| m.as_ref().as_ref()),
+        server.fake_ai(),
+    );
 
     Ok(HttpResponse::Ok().json(ChatResponse {
         text: res.text,

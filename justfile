@@ -34,3 +34,17 @@ upgrade-deps:
     cargo upgrade
     @echo "Running cargo update to lock new versions..."
     cargo update
+
+# Database migrations
+db-setup:
+    @echo "Setting up database with pgvector extension..."
+    sqlx database create
+    sqlx migrate run
+
+db-migrate:
+    sqlx migrate run
+
+db-reset:
+    sqlx database drop -y
+    sqlx database create
+    sqlx migrate run

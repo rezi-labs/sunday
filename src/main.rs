@@ -4,6 +4,7 @@ use env_logger::Env;
 mod api_key_middleware;
 mod chat;
 mod config;
+mod models;
 mod routes;
 mod tenant;
 mod tenant_middleware;
@@ -21,6 +22,30 @@ async fn main() -> std::io::Result<()> {
 
     log::info!("Server starting at {url}");
     log::info!("API key authentication enabled");
+
+    // Initialize AI models if Azure OpenAI is configured
+    let ai_models = if let Some(azure_config) = c.azure_openai() {
+        match models::AiModels::from_azure_config(azure_config) {
+            Ok(models) => {
+                log::info!("Azure OpenAI models initialized successfully");
+                Some(std::sync::Arc::new(models))
+            }
+            Err(e) => {
+                log::error!("Failed to initialize Azure OpenAI models: {}", e);
+                if !c.fake_ai() {
+                    log::error!("Server startup aborted due to AI models initialization failure");
+                    std::process::exit(1);
+                }
+                None
+            }
+        }
+    } else {
+        if !c.fake_ai() {
+            log::warn!("No Azure OpenAI configuration found, but fake_ai is disabled");
+            log::warn!("AI features will not work properly without configuration");
+        }
+        None
+    };
 
     // Initialize tenant manager
     let tenant_manager = std::sync::Arc::new(tenant::TenantManager::new());
@@ -46,12 +71,19 @@ async fn main() -> std::io::Result<()> {
     }
 
     let server = HttpServer::new(move || {
-        App::new()
+        let mut app = App::new()
             .wrap(Logger::default().exclude("/health"))
             .wrap(Logger::new("%a %{User-Agent}i").exclude("/health"))
             .wrap(api_key_middleware::ApiKeyAuth::new(c.api_keys().to_vec()))
             .app_data(web::Data::new(c.clone()))
-            .app_data(web::Data::new(tenant_manager.clone()))
+            .app_data(web::Data::new(tenant_manager.clone()));
+
+        // Add AI models to app data if available
+        if let Some(ref models) = ai_models {
+            app = app.app_data(web::Data::new(models.clone()));
+        }
+
+        app
             // Public routes (no auth required)
             .service(routes::technical::health)
             // Global tenant management routes

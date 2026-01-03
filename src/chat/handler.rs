@@ -1,4 +1,6 @@
 use crate::chat::{ChatRequest, ChatResponse};
+use crate::models::AiModels;
+use rig::completion::Prompt;
 
 pub struct Context {
     _session_id: String,
@@ -23,7 +25,12 @@ impl Context {
     }
 }
 
-pub fn message(r: ChatRequest, context: &Context, fake: bool) -> ChatResponse {
+pub fn message(
+    r: ChatRequest,
+    context: &Context,
+    ai_models: Option<&AiModels>,
+    fake: bool,
+) -> ChatResponse {
     // Get the latest user message
     let latest_message = r
         .messages
@@ -32,10 +39,27 @@ pub fn message(r: ChatRequest, context: &Context, fake: bool) -> ChatResponse {
         .find(|msg| msg.role.as_deref() == Some("user") || msg.role.is_none())
         .and_then(|msg| msg.text.clone());
 
-    if fake {
+    if fake || ai_models.is_none() {
         fake_message(context, latest_message)
     } else {
-        real_message(context, latest_message)
+        // Use async runtime for real message handling
+        match tokio::runtime::Handle::try_current() {
+            Ok(handle) => {
+                // We're in an async context, use block_in_place
+                tokio::task::block_in_place(|| {
+                    handle.block_on(async_real_message(
+                        context,
+                        latest_message,
+                        ai_models.unwrap(),
+                    ))
+                })
+            }
+            Err(_) => {
+                // No runtime, fall back to fake message
+                log::warn!("No tokio runtime available for LLM call, falling back to fake message");
+                fake_message(context, None)
+            }
+        }
     }
 }
 
@@ -51,33 +75,42 @@ pub fn fake_message(context: &Context, msg: Option<String>) -> ChatResponse {
     }
 }
 
-pub fn real_message(context: &Context, msg: Option<String>) -> ChatResponse {
-    let context_with_prios: String = context
-        .knowledge_base
-        .iter()
-        .enumerate()
-        .map(|(i, k)| format!("Priority: {i} Context: {}", k))
-        .collect::<Vec<String>>()
-        .join(", ");
+async fn async_real_message(
+    context: &Context,
+    msg: Option<String>,
+    ai_models: &AiModels,
+) -> ChatResponse {
+    // Build the system prompt with context
+    let mut system_prompt = format!(
+        "You are {} AI, an assistant for tenant '{}'. ",
+        context.service_name, context.tenant
+    );
 
-    // todo actually send to llm
-    let _send_to_llm = match msg {
-        Some(msg) => {
-            format!(
-                "The user sent: {msg}, answer it with this context: {}, you are {} AI responding to your message in tenant '{}'",
-                context_with_prios, context.service_name, context.tenant
-            )
+    if !context.knowledge_base.is_empty() {
+        system_prompt.push_str("Use the following context to answer questions:\n");
+        for (i, k) in context.knowledge_base.iter().enumerate() {
+            system_prompt.push_str(&format!("{}. {}\n", i + 1, k));
         }
-        None => {
-            format!(
-                "No message provided, try with this context: {}, you are {} AI responding to your message in tenant '{}'",
-                context_with_prios, context.service_name, context.tenant
-            )
+    }
+
+    // Get the user message
+    let user_message = msg.unwrap_or_else(|| "Hello!".to_string());
+
+    // Create an agent with the system prompt
+    let agent = ai_models.agent(&system_prompt);
+
+    // Send prompt and get response
+    match agent.prompt(&user_message).await {
+        Ok(response) => ChatResponse {
+            text: response,
+            error: None,
+        },
+        Err(e) => {
+            log::error!("Failed to get LLM response: {}", e);
+            ChatResponse {
+                text: String::new(),
+                error: Some(format!("Failed to get AI response: {}", e)),
+            }
         }
-    };
-
-    // todo send to llm
-
-    // todo replace with real message
-    fake_message(context, None)
+    }
 }
