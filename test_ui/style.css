@@ -63,6 +63,15 @@ header h1 {
     border-bottom: 1px solid #e5e7eb;
 }
 
+.config-row {
+    display: flex;
+    gap: 16px;
+}
+
+.config-row .form-group {
+    flex: 1;
+}
+
 .config-section h2 {
     font-size: 18px;
     margin-bottom: 16px;
@@ -135,7 +144,7 @@ header h1 {
 }
 
 .chat-container {
-    height: 600px;
+    height: 400px;
     display: flex;
     flex-direction: column;
 }
