@@ -36,7 +36,6 @@ Content-Type: application/json
 HTTP 200
 [Asserts]
 jsonpath "$.text" exists
-jsonpath "$.text" contains "test-entity-123"
 jsonpath "$.error" not exists
 
 

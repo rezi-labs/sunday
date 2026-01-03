@@ -18,9 +18,7 @@ mod routes;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
-    env_logger::init_from_env(
-        Env::default().default_filter_or(&log_level),
-    );
+    env_logger::init_from_env(Env::default().default_filter_or(&log_level));
 
     let c = config::from_env();
     let bind = c.clone();
