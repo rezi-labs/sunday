@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::models::AiModels;
+
 #[derive(Deserialize)]
 pub struct CreateDocumentRequest {
     pub entity_id: String,
@@ -35,7 +37,7 @@ pub async fn create_document(
     _auth_state: crate::api_key_middleware::AuthState,
     body: web::Json<CreateDocumentRequest>,
     pool: web::Data<PgPool>,
-    ai_models: Option<web::Data<std::sync::Arc<crate::models::AiModels>>>,
+    ai_models: Option<web::Data<AiModels>>,
 ) -> AwResult<HttpResponse> {
     // Validate entity_id
     if body.entity_id.is_empty() {
@@ -123,7 +125,7 @@ pub async fn upload_document(
     _auth_state: crate::api_key_middleware::AuthState,
     MultipartForm(form): MultipartForm<UploadDocumentForm>,
     pool: web::Data<PgPool>,
-    ai_models: Option<web::Data<std::sync::Arc<crate::models::AiModels>>>,
+    ai_models: Option<web::Data<AiModels>>,
 ) -> AwResult<HttpResponse> {
     // Validate entity_id
     let entity_id = form.entity_id.0.trim();
