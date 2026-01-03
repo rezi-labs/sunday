@@ -32,7 +32,7 @@ futures-util = { version = "0.3", default-features = false }
 
 # LLM
 rig-core = "0.27.0"
-rig-postgres = "0.1.0"
+rig-postgres = "0.1.28"
 
 # Database
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "macros", "migrate", "uuid"] }

@@ -17,7 +17,9 @@ mod routes;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(Env::default().default_filter_or("debug,hyper=debug,reqwest=debug,rig_core=debug"));
+    env_logger::init_from_env(
+        Env::default().default_filter_or("debug,hyper=debug,reqwest=debug,rig_core=debug"),
+    );
 
     let c = config::from_env();
     let bind = c.clone();

@@ -1,9 +1,8 @@
 use crate::config::AzureOpenAIConfig;
+use pgvector::Vector;
 use rig::client::{CompletionClient, EmbeddingsClient};
 use rig::embeddings::{EmbedError, EmbeddingModel, TextEmbedder};
 use rig::providers::azure;
-use rig::vector_store::VectorStoreIndex;
-use rig_postgres::{PgSearchFilter, PgVectorDistanceFunction, PostgresVectorStore};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -108,16 +107,6 @@ impl AiModels {
             .embedding_model(&self.embedding_deployment_name)
     }
 
-    /// Create a vector store for document retrieval
-    pub fn vector_store(&self, pool: PgPool) -> PostgresVectorStore<azure::EmbeddingModel> {
-        PostgresVectorStore::new(
-            self.embedding_model(),
-            pool,
-            Some("documents".to_string()),
-            PgVectorDistanceFunction::Cosine,
-        )
-    }
-
     /// Insert a document and link it to an entity
     pub async fn insert_document(
         &self,
@@ -154,7 +143,9 @@ impl AiModels {
         let document_json = serde_json::to_value(&Document {
             content: content.to_string(),
         })?;
-        let embedding_vec: Vec<f64> = embedding.vec;
+        // Convert f64 to f32 for pgvector
+        let embedding_vec: Vec<f32> = embedding.vec.iter().map(|&x| x as f32).collect();
+        let embedding_vec = Vector::from(embedding_vec);
 
         sqlx::query(
             "INSERT INTO documents (id, document, embedded_text, embedding) VALUES ($1, $2, $3, $4)",
@@ -220,28 +211,29 @@ impl AiModels {
             return Ok(Vec::new());
         }
 
-        // Create filter for document IDs
-        let filter = PgSearchFilter::member(
-            "id".to_string(),
-            document_ids
-                .into_iter()
-                .map(|id| serde_json::Value::String(id.to_string()))
-                .collect(),
-        );
+        // Generate embedding for the query
+        let embedding_model = self.embedding_model();
+        let query_embedding = embedding_model.embed_text(query).await?;
+        // Convert f64 to f32 for pgvector
+        let query_vec: Vec<f32> = query_embedding.vec.iter().map(|&x| x as f32).collect();
+        let query_vec = Vector::from(query_vec);
 
-        // Query vector store
-        let vector_store = self.vector_store(pool.clone());
-        let results: Vec<(f64, String, Document)> = vector_store
-            .top_n(
-                rig::vector_store::VectorSearchRequest::builder()
-                    .query(query)
-                    .samples(limit as u64)
-                    .filter(filter)
-                    .build()?,
-            )
-            .await?;
+        // Query using direct SQL with pgvector L2 distance
+        // Using ANY($2) to filter by document IDs array
+        let results: Vec<(String,)> = sqlx::query_as(
+            "SELECT embedded_text
+             FROM documents
+             WHERE id = ANY($1)
+             ORDER BY embedding <=> $2
+             LIMIT $3",
+        )
+        .bind(&document_ids)
+        .bind(&query_vec)
+        .bind(limit as i64)
+        .fetch_all(pool)
+        .await?;
 
         // Extract content from results
-        Ok(results.into_iter().map(|(_, _, doc)| doc.content).collect())
+        Ok(results.into_iter().map(|(content,)| content).collect())
     }
 }

@@ -86,7 +86,7 @@ pub async fn create_document(
             );
             Ok(HttpResponse::Created().json(CreateDocumentResponse {
                 document_id: document_id.to_string(),
-                entity_id: entity_id.to_string(),
+                entity_id: body.entity_id.clone(),
                 message: "Document created and embedded successfully".to_string(),
             }))
         }
@@ -229,7 +229,7 @@ pub async fn upload_document(
                     .first()
                     .map(|id| id.to_string())
                     .unwrap_or_default(),
-                entity_id: entity_uuid.to_string(),
+                entity_id: entity_id.to_string(),
                 message: format!(
                     "Document from '{}' split into {} chunks and embedded successfully",
                     file_name,
