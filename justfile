@@ -64,6 +64,12 @@ db-stop:
 db-logs:
     docker compose -f docker-compose.dev.yml logs -f postgres
 
+db-delete-volume:
+    @echo "Stopping PostgreSQL database..."
+    docker compose -f docker-compose.dev.yml down
+    @echo "Deleting PostgreSQL volume..."
+    docker volume rm sunday_postgres_data
+
 # Open test UI in browser
 ui:
     @echo "Opening test UI in browser..."

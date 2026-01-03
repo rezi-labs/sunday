@@ -1,5 +1,5 @@
 # sunday
-RAG Chat
+RAG Chat API with pgvector
 
 ## Development
 
@@ -9,39 +9,47 @@ RAG Chat
 
 ### Quick Start
 
-1. **Set up environment variables** (copy and configure):
-    > set FAKE_AI for simple testing
-
+1. **Set up environment variables**:
    ```bash
    cp .env.example .env
    ```
+   
+   Configure your `.env` file:
+   - Set `FAKE_AI=true` for simple testing without Azure OpenAI
+   - Or configure Azure OpenAI credentials for full AI features
 
-2. **Start development** (this will automatically start the database):
+2. **Start development**:
    ```bash
    just run
    ```
-   Or with auto-reload:
+   This will:
+   - Stop any running database containers
+   - Start a fresh PostgreSQL container with pgvector
+   - Run database migrations automatically
+   - Start the server
+
+   For development with auto-reload:
    ```bash
    just watch
    ```
 
-3. **Set up database** (first time only):
-   ```bash
-   just db-setup
-   ```
+### Available Commands
 
-### Database Commands
+#### Development
+- `just run` - Run development server
+- `just watch` - Run with auto-reload (preferred for development)
+- `just ui` - Open test UI in browser
 
-- `just db-setup` - Create database and run migrations
-- `just db-migrate` - Run migrations
-- `just db-reset` - Drop and recreate database
-- `just db-stop` - Stop the PostgreSQL container
-- `just db-logs` - View database logs
-
-### Other Commands
-
+#### Code Quality
 - `just lint` - Check formatting and run clippy
 - `just fmt` - Format code and fix issues
-- `just test` - Run tests
+- `just test` - Run all tests
 - `just verify` - Run lint + test (matches CI)
+
+#### Database
+- `just db-start` - Start PostgreSQL container
+- `just db-stop` - Stop PostgreSQL container
+- `just db-logs` - View database logs
+
+Note: Migrations run automatically when the server starts.
 
