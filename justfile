@@ -28,6 +28,13 @@ verify: lint test build-and-tests
 test:
     cargo test
 
+# Test Azure OpenAI API connection
+test-azure:
+    curl -X POST "https://switzerlandnorth.api.cognitive.microsoft.com/openai/deployments/hive-gpt-4.1-nano/chat/completions?api-version=2025-01-01-preview" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${AZURE_API_KEY}" \
+        -d '{"messages":[{"role":"user","content":"I am going to Paris, what should I see?"}],"max_completion_tokens":13107,"temperature":1,"top_p":1,"frequency_penalty":0,"presence_penalty":0,"model":"hive-gpt-4.1-nano"}'
+
 lint:
     cargo fmt --all -- --check
     cargo clippy

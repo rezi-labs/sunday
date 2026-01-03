@@ -1,5 +1,5 @@
 use crate::config::AzureOpenAIConfig;
-use rig::client::{CompletionClient, EmbeddingsClient, ProviderClient};
+use rig::client::{CompletionClient, EmbeddingsClient};
 use rig::embeddings::{EmbedError, EmbeddingModel, TextEmbedder};
 use rig::providers::azure;
 use rig::vector_store::VectorStoreIndex;
@@ -21,8 +21,10 @@ impl rig::Embed for Document {
 }
 
 /// Container for Azure OpenAI client and deployment names
+#[derive(Clone)]
 pub struct AiModels {
-    client: azure::Client,
+    chat_client: azure::Client,
+    embedding_client: azure::Client,
     pub deployment_name: String,
     pub embedding_deployment_name: String,
 }
@@ -30,24 +32,57 @@ pub struct AiModels {
 impl AiModels {
     /// Create AI models from Azure OpenAI configuration
     pub fn from_azure_config(config: &AzureOpenAIConfig) -> Result<Self, String> {
-        // Set environment variables for Azure OpenAI
-        unsafe {
-            std::env::set_var("AZURE_API_KEY", &config.api_key);
-            std::env::set_var("AZURE_API_VERSION", &config.api_version);
-            std::env::set_var("AZURE_ENDPOINT", &config.endpoint);
-        }
+        // Read Azure configuration from environment
+        let api_key =
+            std::env::var("AZURE_API_KEY").map_err(|_| "AZURE_API_KEY must be set".to_string())?;
 
-        // Create Azure OpenAI client from environment
-        let client: azure::Client = ProviderClient::from_env();
+        let chat_api_version = std::env::var("AZURE_CHAT_API_VERSION")
+            .map_err(|_| "AZURE_CHAT_API_VERSION must be set".to_string())?;
+
+        let embedding_api_version = std::env::var("AZURE_EMBEDDING_API_VERSION")
+            .map_err(|_| "AZURE_EMBEDDING_API_VERSION must be set".to_string())?;
+
+        let azure_endpoint = std::env::var("AZURE_ENDPOINT")
+            .map_err(|_| "AZURE_ENDPOINT must be set".to_string())?;
+
+        log::info!("Azure OpenAI endpoint: {}", azure_endpoint);
+        log::info!("Chat API version: {}", chat_api_version);
+        log::info!("Embedding API version: {}", embedding_api_version);
+        log::info!("Chat deployment name: {}", config.deployment_name);
+
+        // Create Azure OpenAI client for chat completions
+        let chat_client: azure::Client = azure::Client::builder()
+            .base_url(azure_endpoint.clone())
+            .api_key(azure::AzureOpenAIAuth::ApiKey(api_key.clone()))
+            .azure_endpoint(azure_endpoint.clone())
+            .api_version(&chat_api_version)
+            .build()
+            .map_err(|e| format!("Failed to build Azure chat client: {}", e))?;
+        
+        log::info!("Azure chat client built successfully");
 
         // Get embedding deployment name from environment
         let embedding_deployment_name = std::env::var("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME")
             .map_err(|_| {
                 "AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME must be set for embeddings".to_string()
             })?;
+        
+        log::info!("Embedding deployment name: {}", embedding_deployment_name);
+
+        // Create separate Azure OpenAI client for embeddings with different API version
+        let embedding_client: azure::Client = azure::Client::builder()
+            .base_url(azure_endpoint.clone())
+            .api_key(azure::AzureOpenAIAuth::ApiKey(api_key))
+            .azure_endpoint(azure_endpoint.clone())
+            .api_version(&embedding_api_version)
+            .build()
+            .map_err(|e| format!("Failed to build Azure embedding client: {}", e))?;
+        
+        log::info!("Azure embedding client built successfully");
 
         Ok(AiModels {
-            client,
+            chat_client,
+            embedding_client,
             deployment_name: config.deployment_name.clone(),
             embedding_deployment_name,
         })
@@ -55,7 +90,7 @@ impl AiModels {
 
     /// Create an agent for chat completion
     pub fn agent(&self, preamble: &str) -> rig::agent::Agent<azure::CompletionModel> {
-        self.client
+        self.chat_client
             .agent(&self.deployment_name)
             .preamble(preamble)
             .build()
@@ -63,7 +98,11 @@ impl AiModels {
 
     /// Get the embedding model
     pub fn embedding_model(&self) -> azure::EmbeddingModel {
-        self.client.embedding_model(&self.embedding_deployment_name)
+        log::debug!(
+            "Creating embedding model with deployment: {}",
+            self.embedding_deployment_name
+        );
+        self.embedding_client.embedding_model(&self.embedding_deployment_name)
     }
 
     /// Create a vector store for document retrieval
@@ -84,8 +123,21 @@ impl AiModels {
         entity_id: Uuid,
     ) -> Result<Uuid, Box<dyn std::error::Error>> {
         // Generate embedding
+        log::debug!("Generating embedding for content (length: {})", content.len());
+        
+        // Log the expected URL format for Azure OpenAI embeddings
+        let azure_endpoint = std::env::var("AZURE_ENDPOINT").unwrap_or_default();
+        let embedding_api_version = std::env::var("AZURE_EMBEDDING_API_VERSION").unwrap_or_default();
+        let expected_url = format!(
+            "{}/openai/deployments/{}/embeddings?api-version={}",
+            azure_endpoint, self.embedding_deployment_name, embedding_api_version
+        );
+        log::info!("Expected Azure OpenAI embedding URL: {}", expected_url);
+        
         let embedding_model = self.embedding_model();
+        log::debug!("Calling Azure OpenAI embedding API...");
         let embedding = embedding_model.embed_text(content).await?;
+        log::debug!("Successfully received embedding with {} dimensions", embedding.vec.len());
 
         // Insert document
         let document_id = Uuid::new_v4();

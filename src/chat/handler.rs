@@ -40,15 +40,15 @@ pub async fn message_async(
     } else if let (Some(models), Some(pool)) = (ai_models, pool) {
         async_real_message(context, latest_message, models, pool).await
     } else {
-        fake_message(context, latest_message)
+        panic!("oops")
     }
 }
 
 pub fn fake_message(context: &Context, msg: Option<String>) -> ChatResponse {
     let msg = msg.unwrap_or("Nothing".to_string());
     let res = format!(
-        "Hello! You said: '{}'. This is {} AI responding to your message for entity '{}'. In the future, this will be connected to a proper AI service.",
-        msg, context.service_name, context.entity_id
+        "Hello! You said: '{}'. This is {} AI responding",
+        msg, context.service_name
     );
     ChatResponse {
         text: res,
@@ -95,10 +95,7 @@ async fn async_real_message(
     };
 
     // Build the system prompt with context
-    let mut system_prompt = format!(
-        "You are {} AI, an assistant for entity '{}'. ",
-        context.service_name, context.entity_id
-    );
+    let mut system_prompt = format!("You are {} AI ", context.service_name);
 
     if !knowledge_base.is_empty() {
         system_prompt.push_str("Use the following context to answer questions:\n\n");
@@ -132,10 +129,7 @@ async fn async_real_message(
 }
 
 async fn simple_chat(context: &Context, message: &str, ai_models: &AiModels) -> ChatResponse {
-    let system_prompt = format!(
-        "You are {} AI, an assistant for entity '{}'.",
-        context.service_name, context.entity_id
-    );
+    let system_prompt = format!("You are {} AI.", context.service_name);
 
     let agent = ai_models.agent(&system_prompt);
 

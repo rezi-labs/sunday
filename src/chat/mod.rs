@@ -33,7 +33,7 @@ pub async fn chat_endpoint(
     // just check if not how caller is authenticated
     _auth_state: AuthState,
     server: web::Data<Server>,
-    ai_models: Option<web::Data<std::sync::Arc<AiModels>>>,
+    ai_models: Option<web::Data<AiModels>>,
     pool: Option<web::Data<PgPool>>,
     body: web::Json<ChatRequest>,
 ) -> AwResult<HttpResponse> {
@@ -53,7 +53,7 @@ pub async fn chat_endpoint(
     let res = handler::message_async(
         body.0,
         &context,
-        ai_models.as_ref().map(|m| m.as_ref().as_ref()),
+        ai_models.as_ref().map(|m| m.as_ref()),
         pool.as_ref().map(|p| p.as_ref()),
         server.fake_ai(),
     )

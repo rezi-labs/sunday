@@ -2,9 +2,6 @@ use std::env;
 
 #[derive(Clone)]
 pub struct AzureOpenAIConfig {
-    pub api_key: String,
-    pub api_version: String,
-    pub endpoint: String,
     pub deployment_name: String,
 }
 
@@ -85,16 +82,8 @@ pub fn from_env() -> Server {
     let api_keys = vec![api_key_one, api_key_two];
 
     // Azure OpenAI configuration (optional - only needed if not using fake AI)
-    let azure_openai = if let (Ok(api_key), Ok(api_version), Ok(endpoint), Ok(deployment)) = (
-        env::var("AZURE_OPENAI_API_KEY"),
-        env::var("AZURE_OPENAI_API_VERSION"),
-        env::var("AZURE_OPENAI_ENDPOINT"),
-        env::var("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    ) {
+    let azure_openai = if let Ok(deployment) = env::var("AZURE_OPENAI_DEPLOYMENT_NAME") {
         Some(AzureOpenAIConfig {
-            api_key,
-            api_version,
-            endpoint,
             deployment_name: deployment,
         })
     } else {
