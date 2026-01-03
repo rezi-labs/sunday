@@ -1,6 +1,7 @@
+use crate::api_key_middleware::AuthState;
 use crate::config::Server;
-use crate::routes::get_user;
-use actix_web::{HttpRequest, HttpResponse, Result as AwResult, Scope, post, web};
+use crate::tenant_middleware::get_tenant_from_path;
+use actix_web::{HttpRequest, HttpResponse, Result as AwResult, post, web};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -9,17 +10,6 @@ pub struct MessageContent {
     pub role: Option<String>,
     #[serde(default)]
     pub text: Option<String>,
-    #[serde(default)]
-    pub files: Option<Vec<FileContent>>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct FileContent {
-    pub name: String,
-    #[serde(default)]
-    pub src: Option<String>,
-    #[serde(default)]
-    pub type_field: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -35,43 +25,28 @@ pub struct ChatResponse {
 }
 
 #[post("/chat")]
-async fn chat_endpoint(
-    _tenant: web::Path<String>,
+pub async fn chat_endpoint(
+    auth_state: AuthState,
     server: web::Data<Server>,
     req: HttpRequest,
     body: web::Json<ChatRequest>,
 ) -> AwResult<HttpResponse> {
-    // Check if user is authenticated
-    let user = match get_user(req) {
-        Some(user) => user,
-        None => {
-            return Ok(HttpResponse::Unauthorized().json(ChatResponse {
-                text: String::new(),
-                error: Some("Authentication required".to_string()),
-            }));
-        }
-    };
+    // Auth is enforced by AuthState extractor - if we reach here, we're authenticated
+    log::debug!("Authenticated chat request: {:?}", auth_state);
 
-    // Check if user has tenant context
-    let tenant = match user.tenant() {
+    // Get tenant from URL path
+    let tenant = match get_tenant_from_path(&req) {
         Some(t) => t,
         None => {
-            log::error!(
-                "User {} attempted to access chat without tenant context",
-                user.email()
-            );
-            return Ok(HttpResponse::Forbidden().json(ChatResponse {
+            log::error!("Attempted to access chat without tenant in URL");
+            return Ok(HttpResponse::BadRequest().json(ChatResponse {
                 text: String::new(),
-                error: Some("Tenant access required".to_string()),
+                error: Some("Invalid tenant in URL".to_string()),
             }));
         }
     };
 
-    log::info!(
-        "Chat request from user: {} in tenant: {}",
-        user.email(),
-        tenant
-    );
+    log::info!("Chat request for tenant: {}", tenant);
     log::debug!("Chat request body: {:?}", body.messages);
 
     // Get the latest user message
@@ -86,10 +61,10 @@ async fn chat_endpoint(
         Some(user_text) => {
             // Simple echo response for now - you can integrate with AI services here
             format!(
-                "Hello {}! You said: '{}'. This is {} AI responding to your message. In the future, this will be connected to a proper AI service.",
-                user.email(),
+                "Hello! You said: '{}'. This is {} AI responding to your message in tenant '{}'. In the future, this will be connected to a proper AI service.",
                 user_text,
-                server.sunday_name()
+                server.sunday_name(),
+                tenant
             )
         }
         None => {
@@ -104,8 +79,4 @@ async fn chat_endpoint(
         text: response_text,
         error: None,
     }))
-}
-
-pub fn scope() -> Scope {
-    web::scope("/api").service(chat_endpoint)
 }

@@ -1,23 +1,17 @@
-# Chef stage - prepare recipe
-FROM rust:1.88-slim AS chef
+# Build stage
+FROM rust:1.88-slim AS builder
+WORKDIR /usr/src/app
+
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
-RUN cargo install cargo-chef
-WORKDIR /usr/src/app
 
-# Planner stage - analyze dependencies
-FROM chef AS planner
-COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
+# Copy manifest files and build dependencies
+COPY Cargo.toml Cargo.lock ./
 
-# Builder stage - build dependencies and application
-FROM chef AS builder
-COPY --from=planner /usr/src/app/recipe.json recipe.json
-# Build dependencies - this is the caching Docker layer!
-RUN cargo chef cook --release --recipe-path recipe.json
-# Now copy source code and build application
+# Copy source code and build application
 COPY . .
 RUN cargo build --release
 
@@ -29,11 +23,10 @@ RUN apt-get update && apt-get install -y \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /usr/src/app/assets /
-# Copy the build artifact from the build stage
 COPY --from=builder /usr/src/app/target/release/sunday /usr/local/bin/
 
-LABEL org.opencontainers.image.source=https://github.com/LunchTimeCode/taste
+WORKDIR /app
 
-# Set the startup command
+LABEL org.opencontainers.image.source=https://github.com/rezi-labs/sunday
+
 CMD ["sunday"]

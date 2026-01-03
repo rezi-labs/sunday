@@ -1,0 +1,35 @@
+# Build artifacts
+target/
+*.o
+*.so
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Documentation
+README.md
+LICENSE
+AGENTS.md
+*.md
+
+# Tests
+tests/
+
+# Docker
+Dockerfile
+docker-compose.yml
+docker.just
+
+# Local development
+private.just
+variables
+.env
+.env.local
+
+# CI/CD
+.github/

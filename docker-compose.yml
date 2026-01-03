@@ -1,25 +1,12 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:18-alpine
-    container_name: postgres_sunday
-    restart: unless-stopped
+  sunday:
+    image: ghcr.io/rezi-labs/sunday:latest
+    container_name: sunday
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-sunday}
+      LOCAL: "true"
+      API_KEY_ONE: "very-secure-one"
+      API_KEY_TWO: "very-secure-two"
+      RUST_LOG: "debug"
     ports:
-      - "5500:5432"
-    volumes:
-      # PostgreSQL 18+ compatible volume mount
-      - sunday-postgres-data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sunday}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  sunday-postgres-data:
-    driver: local
+      - "3000:3000"
+    restart: unless-stopped

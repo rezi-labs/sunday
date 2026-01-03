@@ -1,32 +1,15 @@
-use crate::config::Server;
+use crate::api_key_middleware::AuthState;
 use crate::tenant::{CreateTenantRequest, TenantManager};
-use actix_web::{HttpRequest, HttpResponse, Result, web};
+use actix_web::{HttpResponse, Result, web};
 use std::sync::Arc;
 
 pub async fn create_tenant(
-    req: HttpRequest,
+    auth_state: AuthState,
     tenant_request: web::Json<CreateTenantRequest>,
     tenant_manager: web::Data<Arc<TenantManager>>,
-    config: web::Data<Server>,
 ) -> Result<HttpResponse> {
-    // Validate API key
-    let auth_header = req
-        .headers()
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok());
-
-    let provided_key = match auth_header {
-        Some(header) if header.starts_with("Bearer ") => &header[7..],
-        _ => {
-            return Ok(HttpResponse::Unauthorized()
-                .json(serde_json::json!({"error": "Missing or invalid Authorization header. Expected 'Bearer <api_key>'"})));
-        }
-    };
-
-    if provided_key != config.tenant_api_key() {
-        log::warn!("Invalid API key provided for tenant creation");
-        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Invalid API key"})));
-    }
+    // Auth is enforced by AuthState extractor - if we reach here, we're authenticated
+    log::debug!("Authenticated create tenant request: {:?}", auth_state);
 
     // Create tenant
     match tenant_manager.create_tenant(&tenant_request.name).await {
@@ -42,28 +25,11 @@ pub async fn create_tenant(
 }
 
 pub async fn list_tenants(
-    req: HttpRequest,
+    auth_state: AuthState,
     tenant_manager: web::Data<Arc<TenantManager>>,
-    config: web::Data<Server>,
 ) -> Result<HttpResponse> {
-    // Validate API key
-    let auth_header = req
-        .headers()
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok());
-
-    let provided_key = match auth_header {
-        Some(header) if header.starts_with("Bearer ") => &header[7..],
-        _ => {
-            return Ok(HttpResponse::Unauthorized()
-                .json(serde_json::json!({"error": "Missing or invalid Authorization header. Expected 'Bearer <api_key>'"})));
-        }
-    };
-
-    if provided_key != config.tenant_api_key() {
-        log::warn!("Invalid API key provided for tenant listing");
-        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Invalid API key"})));
-    }
+    // Auth is enforced by AuthState extractor - if we reach here, we're authenticated
+    log::debug!("Authenticated list tenants request: {:?}", auth_state);
 
     // List tenants
     match tenant_manager.list_tenants().await {
