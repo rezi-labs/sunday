@@ -8,9 +8,17 @@ export API_KEY_ONE := 'very-secure-key-one'
 export API_KEY_TWO := 'very-secure-key-two'
 
 run:
+    @echo "Starting PostgreSQL database..."
+    just db-start
+    @echo "Waiting for database to be ready..."
+    @sleep 3
     cargo run
 
 watch:
+    @echo "Starting PostgreSQL database..."
+    just db-start
+    @echo "Waiting for database to be ready..."
+    @sleep 3
     cargo watch -x run
 
 verify: lint test build-and-tests
@@ -35,16 +43,14 @@ upgrade-deps:
     @echo "Running cargo update to lock new versions..."
     cargo update
 
-# Database migrations
-db-setup:
-    @echo "Setting up database with pgvector extension..."
-    sqlx database create
-    sqlx migrate run
+# Database commands
+db-start:
+    @echo "Starting PostgreSQL database..."
+    docker compose -f docker-compose.dev.yml up -d
 
-db-migrate:
-    sqlx migrate run
+db-stop:
+    @echo "Stopping PostgreSQL database..."
+    docker compose -f docker-compose.dev.yml down
 
-db-reset:
-    sqlx database drop -y
-    sqlx database create
-    sqlx migrate run
+db-logs:
+    docker compose -f docker-compose.dev.yml logs -f postgres

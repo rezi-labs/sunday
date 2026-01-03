@@ -6,7 +6,6 @@ pub struct AzureOpenAIConfig {
     pub api_version: String,
     pub endpoint: String,
     pub deployment_name: String,
-    pub embedding_deployment_name: String,
 }
 
 #[derive(Clone)]
@@ -18,8 +17,6 @@ pub struct Server {
     sunday_name: String,
     // API key authentication
     api_keys: Vec<String>,
-    // Database
-    database_url: Option<String>,
     // Azure OpenAI
     azure_openai: Option<AzureOpenAIConfig>,
 }
@@ -58,10 +55,6 @@ impl Server {
         &self.api_keys
     }
 
-    pub fn database_url(&self) -> Option<&str> {
-        self.database_url.as_deref()
-    }
-
     pub fn azure_openai(&self) -> Option<&AzureOpenAIConfig> {
         self.azure_openai.as_ref()
     }
@@ -93,29 +86,18 @@ pub fn from_env() -> Server {
 
     let api_keys = vec![api_key_one, api_key_two];
 
-    // Database URL (optional - only needed if not using fake AI)
-    let database_url = env::var("DATABASE_URL").ok();
-
     // Azure OpenAI configuration (optional - only needed if not using fake AI)
-    let azure_openai = if let (
-        Ok(api_key),
-        Ok(api_version),
-        Ok(endpoint),
-        Ok(deployment),
-        Ok(embedding_deployment),
-    ) = (
+    let azure_openai = if let (Ok(api_key), Ok(api_version), Ok(endpoint), Ok(deployment)) = (
         env::var("AZURE_OPENAI_API_KEY"),
         env::var("AZURE_OPENAI_API_VERSION"),
         env::var("AZURE_OPENAI_ENDPOINT"),
         env::var("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        env::var("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
     ) {
         Some(AzureOpenAIConfig {
             api_key,
             api_version,
             endpoint,
             deployment_name: deployment,
-            embedding_deployment_name: embedding_deployment,
         })
     } else {
         None
@@ -128,7 +110,6 @@ pub fn from_env() -> Server {
         fake_ai,
         sunday_name,
         api_keys,
-        database_url,
         azure_openai,
     }
 }

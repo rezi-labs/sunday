@@ -4,6 +4,7 @@ use env_logger::Env;
 mod api_key_middleware;
 mod chat;
 mod config;
+mod migrations;
 mod models;
 mod routes;
 mod tenant;
@@ -15,6 +16,15 @@ async fn main() -> std::io::Result<()> {
 
     let c = config::from_env();
     let bind = c.clone();
+
+    // Run database migrations
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    if let Err(e) = migrations::run_migrations(&database_url).await {
+        log::error!("Failed to run database migrations: {}", e);
+        log::error!("Server startup aborted due to migration failure");
+        std::process::exit(1);
+    }
 
     let url = format!("http://{}:{}", c.host(), c.port());
 
