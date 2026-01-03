@@ -1,6 +1,10 @@
 use crate::chat::{ChatRequest, ChatResponse};
 use crate::models::AiModels;
-use rig::completion::Prompt;
+use rig::OneOrMany;
+use rig::completion::{
+    Chat, Message,
+    message::{AssistantContent, Text, UserContent},
+};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -32,13 +36,13 @@ pub async fn message_async(
         .messages
         .iter()
         .rev()
-        .find(|msg| msg.role.as_deref() == Some("user") || msg.role.is_none())
-        .and_then(|msg| msg.text.clone());
+        .find(|msg| msg.role == "user")
+        .map(|msg| msg.text.clone());
 
     if fake {
         fake_message(context, latest_message)
     } else if let (Some(models), Some(pool)) = (ai_models, pool) {
-        async_real_message(context, latest_message, models, pool).await
+        async_real_message(context, &r.messages, latest_message, models, pool).await
     } else {
         panic!("oops")
     }
@@ -58,6 +62,7 @@ pub fn fake_message(context: &Context, msg: Option<String>) -> ChatResponse {
 
 async fn async_real_message(
     context: &Context,
+    messages: &[crate::chat::MessageContent],
     msg: Option<String>,
     ai_models: &AiModels,
     pool: &PgPool,
@@ -74,11 +79,11 @@ async fn async_real_message(
                 context.entity_id
             );
             // Proceed without RAG context
-            return simple_chat(context, &user_message, ai_models).await;
+            return simple_chat(context, messages, ai_models).await;
         }
         Err(e) => {
             log::error!("Failed to get entity UUID: {}", e);
-            return simple_chat(context, &user_message, ai_models).await;
+            return simple_chat(context, messages, ai_models).await;
         }
     };
 
@@ -112,8 +117,44 @@ async fn async_real_message(
     // Create an agent with the system prompt
     let agent = ai_models.agent(&system_prompt);
 
-    // Send prompt and get response
-    match agent.prompt(&user_message).await {
+    // Convert messages to rig Message format
+    // Split into chat history (all but last) and current prompt (last user message)
+    let mut chat_history: Vec<Message> = Vec::new();
+    let mut current_message = user_message.clone();
+
+    for (i, m) in messages.iter().enumerate() {
+        if i == messages.len() - 1 && m.role == "user" {
+            // This is the current user message, use it as the prompt
+            current_message = m.text.clone();
+        } else {
+            // Add to chat history
+            let message = match m.role.as_str() {
+                "user" => Message::User {
+                    content: OneOrMany::one(UserContent::Text(Text {
+                        text: m.text.clone(),
+                    })),
+                },
+                "assistant" => Message::Assistant {
+                    id: None,
+                    content: OneOrMany::one(AssistantContent::Text(Text {
+                        text: m.text.clone(),
+                    })),
+                },
+                _ => {
+                    log::warn!("Unknown message role: {}, treating as user", m.role);
+                    Message::User {
+                        content: OneOrMany::one(UserContent::Text(Text {
+                            text: m.text.clone(),
+                        })),
+                    }
+                }
+            };
+            chat_history.push(message);
+        }
+    }
+
+    // Send chat with history and get response
+    match agent.chat(&current_message, chat_history).await {
         Ok(response) => ChatResponse {
             text: response,
             error: None,
@@ -128,12 +169,52 @@ async fn async_real_message(
     }
 }
 
-async fn simple_chat(context: &Context, message: &str, ai_models: &AiModels) -> ChatResponse {
+async fn simple_chat(
+    context: &Context,
+    messages: &[crate::chat::MessageContent],
+    ai_models: &AiModels,
+) -> ChatResponse {
     let system_prompt = format!("You are {} AI.", context.service_name);
 
     let agent = ai_models.agent(&system_prompt);
 
-    match agent.prompt(message).await {
+    // Convert messages to rig Message format
+    // Split into chat history (all but last) and current prompt (last user message)
+    let mut chat_history: Vec<Message> = Vec::new();
+    let mut current_message = "Hello!".to_string();
+
+    for (i, m) in messages.iter().enumerate() {
+        if i == messages.len() - 1 && m.role == "user" {
+            // This is the current user message, use it as the prompt
+            current_message = m.text.clone();
+        } else {
+            // Add to chat history
+            let message = match m.role.as_str() {
+                "user" => Message::User {
+                    content: OneOrMany::one(UserContent::Text(Text {
+                        text: m.text.clone(),
+                    })),
+                },
+                "assistant" => Message::Assistant {
+                    id: None,
+                    content: OneOrMany::one(AssistantContent::Text(Text {
+                        text: m.text.clone(),
+                    })),
+                },
+                _ => {
+                    log::warn!("Unknown message role: {}, treating as user", m.role);
+                    Message::User {
+                        content: OneOrMany::one(UserContent::Text(Text {
+                            text: m.text.clone(),
+                        })),
+                    }
+                }
+            };
+            chat_history.push(message);
+        }
+    }
+
+    match agent.chat(&current_message, chat_history).await {
         Ok(response) => ChatResponse {
             text: response,
             error: None,

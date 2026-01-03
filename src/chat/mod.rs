@@ -20,12 +20,10 @@ pub struct ChatRequest {
     pub entity_id: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct MessageContent {
-    #[serde(default)]
-    pub role: Option<String>,
-    #[serde(default)]
-    pub text: Option<String>,
+    pub role: String,
+    pub text: String,
 }
 
 #[post("/chat")]
