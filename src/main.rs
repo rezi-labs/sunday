@@ -55,6 +55,7 @@ async fn main() -> std::io::Result<()> {
     println!("{}", sunday_ascii_art());
 
     log::info!("Server starting at {url}");
+    log::info!("UI starting at {url}/ui");
     log::info!("API key authentication enabled");
 
     // Initialize AI models if Azure OpenAI is configured
