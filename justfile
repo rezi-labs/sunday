@@ -69,8 +69,3 @@ db-delete-volume:
     docker compose -f docker-compose.dev.yml down
     @echo "Deleting PostgreSQL volume..."
     docker volume rm sunday_postgres_data
-
-# Open test UI in browser
-ui:
-    @echo "Opening test UI in browser..."
-    xdg-open test_ui/index.html || open test_ui/index.html || start test_ui/index.html

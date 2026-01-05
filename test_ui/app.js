@@ -1,5 +1,5 @@
 // Configuration
-let apiUrl = 'http://localhost:3000';
+let apiUrl = window.location.origin; // Use relative path based on current origin
 let apiKey = 'very-secure-key-one';
 let entityId = 'acme-corp';
 let chatHistory = [];
@@ -17,6 +17,10 @@ const addDocumentButton = document.getElementById('add-document');
 const documentResponse = document.getElementById('document-response');
 const healthIndicator = document.getElementById('health-indicator');
 const healthText = document.getElementById('health-text');
+
+// Set the API URL input to show current origin
+apiUrlInput.value = apiUrl;
+apiUrlInput.placeholder = apiUrl;
 
 // Tab switching
 document.querySelectorAll('.tab-button').forEach(button => {

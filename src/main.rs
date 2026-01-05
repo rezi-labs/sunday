@@ -1,4 +1,5 @@
 use actix_cors::Cors;
+use actix_files::Files;
 use actix_web::{
     App, HttpServer,
     middleware::Logger,
@@ -130,6 +131,12 @@ async fn main() -> std::io::Result<()> {
         app
             // Public routes (no auth required)
             .service(routes::technical::health)
+            // Static files for test UI (must be public, no auth)
+            .service(
+                Files::new("/ui", "./test_ui")
+                    .index_file("index.html")
+                    .use_last_modified(true),
+            )
             // API routes
             .service(
                 web::scope("/api")
